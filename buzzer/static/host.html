@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Buzzer Host</title>
+  <link rel="stylesheet" href="/static/host.css" />
+</head>
+<body>
+  <div id="topbar">
+    <div id="phase-badge">--</div>
+    <div id="conn-dot"><span class="dot"></span><span class="label">connecting…</span></div>
+  </div>
+
+  <div id="warnings"></div>
+
+  <div id="teams"></div>
+
+  <div id="active-clue" class="hidden"></div>
+
+  <div id="actions">
+    <button class="action-btn arm" id="btn-arm">Arm<span class="key-hint">space</span></button>
+    <button class="action-btn reveal" id="btn-reveal">Reveal<span class="key-hint">r</span></button>
+    <button class="action-btn correct" id="btn-correct">Correct<span class="key-hint">y</span></button>
+    <button class="action-btn incorrect" id="btn-incorrect">Incorrect<span class="key-hint">n</span></button>
+    <button class="action-btn back" id="btn-back">Back to board<span class="key-hint">esc</span></button>
+  </div>
+
+  <div id="board-section">
+    <h2>Select a clue</h2>
+    <div class="board-grid" id="board-grid"></div>
+  </div>
+
+  <div id="footer">
+    <button id="reset-btn">Reset entire game</button>
+  </div>
+
+  <script src="/static/host.js"></script>
+</body>
+</html>
