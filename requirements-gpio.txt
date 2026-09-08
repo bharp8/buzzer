@@ -1,0 +1,3 @@
+# Only needed on the Raspberry Pi. Install with:
+#   pip install -r requirements.txt -r requirements-gpio.txt
+lgpio>=0.2
