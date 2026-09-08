@@ -1,0 +1,18 @@
+[Unit]
+Description=Buzzer - Two-Team Jeopardy Buzzer System
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+# Adjust WorkingDirectory to actual install path if repo is elsewhere
+WorkingDirectory=/home/pi/buzzer
+# Adjust ExecStart path if repo is elsewhere
+ExecStart=/home/pi/buzzer/run.sh
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
