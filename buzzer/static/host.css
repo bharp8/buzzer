@@ -360,6 +360,52 @@ button {
   color: var(--text-dim);
 }
 
+/* ---------- phone buzzer fallback links ---------- */
+
+#phone-buzzer-section {
+  padding: 4px 10px 6px;
+}
+
+#phone-buzzer-section h2 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin: 10px 0 4px;
+}
+
+#phone-buzzer-section .hint {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin: 0 0 8px;
+  line-height: 1.4;
+}
+
+#phone-buzzer-links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.phone-buzzer-link {
+  display: block;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.78rem;
+  color: var(--text);
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.phone-buzzer-link.is-a {
+  border-color: var(--team-a-dim);
+}
+.phone-buzzer-link.is-b {
+  border-color: var(--team-b-dim);
+}
+
 /* ---------- footer ---------- */
 
 #footer {

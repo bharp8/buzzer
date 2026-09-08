@@ -7,6 +7,7 @@
   const phaseBadgeEl = document.getElementById("phase-badge");
   const connDotEl = document.getElementById("conn-dot");
   const boardGridEl = document.getElementById("board-grid");
+  const phoneBuzzerLinksEl = document.getElementById("phone-buzzer-links");
 
   const btnArm = document.getElementById("btn-arm");
   const btnReveal = document.getElementById("btn-reveal");
@@ -19,6 +20,7 @@
   let reconnectDelay = 500;
   const RECONNECT_MAX_DELAY = 5000;
   let latest = null;
+  let phoneLinksBuilt = false;
 
   function wsUrl() {
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -100,6 +102,7 @@
     renderActiveClue(state);
     renderActions(state);
     renderBoardGrid(state);
+    renderPhoneBuzzerLinks(state);
   }
 
   function renderTeams(state) {
@@ -224,6 +227,22 @@
       });
 
       boardGridEl.appendChild(row);
+    });
+  }
+
+  function renderPhoneBuzzerLinks(state) {
+    if (phoneLinksBuilt) return;
+    phoneLinksBuilt = true;
+    phoneBuzzerLinksEl.innerHTML = "";
+    state.teams.forEach((team, idx) => {
+      const url = `${window.location.origin}/buzz/${idx}`;
+      const row = document.createElement("a");
+      row.className = "phone-buzzer-link " + (TEAM_CLASS[idx] || "");
+      row.href = `/buzz/${idx}`;
+      row.target = "_blank";
+      row.rel = "noopener";
+      row.textContent = `${team.name}: ${url}`;
+      phoneBuzzerLinksEl.appendChild(row);
     });
   }
 

@@ -95,3 +95,23 @@ Both lines idle HIGH; a button press pulls LOW (falling edge). RC filters cap at
 | Esc | Return to board |
 
 (Shortcuts work on `/host` page; test on the device it will display on.)
+
+## Fallback: phone buzzers
+
+If the physical buttons stop working mid-game, each team can buzz in from
+their own phone instead: send Team A to `/buzz/0` and Team B to `/buzz/1`
+(the host panel lists these links under "Fallback: phone buzzers" so you
+don't have to remember the URLs). Each page is a single big button in that
+team's color, live-updated over the same WebSocket as `/board` and `/host`.
+
+This is a deliberately lower-fidelity fallback, not a replacement for the
+real buzzers: a phone buzz is timestamped when the request reaches the
+server, not by a kernel GPIO edge, so it inherits Wi-Fi and browser latency
+and can't offer the same fairness guarantee described in section 2.1 of the
+spec. Use it to keep a game moving when hardware fails, not as the primary
+input.
+
+Under the hood it's the same manual-override endpoint the host's own
+`1`/`2` keys use (`POST /api/manual_buzz/{team}`), just called from a
+page the players hold instead of the host. Every buzz is still logged with
+its source (`host`, `phone`, `gpio`, or `mock`) for dispute resolution.

@@ -101,6 +101,44 @@ def test_dev_buzz_broadcasts_over_websocket(content_path):
             assert snap["winner"] == 0
 
 
+def test_phone_buzz_page_serves_for_valid_team(content_path):
+    with make_client(content_path) as client:
+        assert client.get("/buzz/0").status_code == 200
+        assert client.get("/buzz/1").status_code == 200
+
+
+def test_phone_buzz_page_404s_for_unknown_team(content_path):
+    with make_client(content_path) as client:
+        assert client.get("/buzz/2").status_code == 404
+        assert client.get("/buzz/-1").status_code == 404
+
+
+def test_phone_buzz_registers_and_logs_source(content_path, caplog):
+    with make_client(content_path) as client:
+        with client.websocket_connect("/ws") as ws:
+            ws.receive_json()
+            client.post("/api/select_clue", json={"category": 0, "row": 0})
+            ws.receive_json()
+            client.post("/api/arm")
+            ws.receive_json()
+            with caplog.at_level("INFO", logger="buzzer"):
+                r = client.post("/api/manual_buzz/0?source=phone")
+            assert r.status_code == 200
+            snap = ws.receive_json()
+            assert snap["phase"] == "LOCKED"
+            assert snap["winner"] == 0
+            assert any("source=phone" in rec.message for rec in caplog.records)
+
+
+def test_manual_buzz_default_source_is_host(content_path, caplog):
+    with make_client(content_path) as client:
+        client.post("/api/select_clue", json={"category": 0, "row": 0})
+        client.post("/api/arm")
+        with caplog.at_level("INFO", logger="buzzer"):
+            client.post("/api/manual_buzz/0")
+        assert any("source=host" in rec.message for rec in caplog.records)
+
+
 def test_startup_self_test_surfaces_warning_for_stuck_team(content_path):
     backend = MockBackend(num_teams=2)
     backend.set_stuck(1, True)

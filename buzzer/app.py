@@ -26,6 +26,16 @@ from .inputs.base import BuzzerInput
 from .inputs.mock import MockBackend
 
 logger = logging.getLogger("buzzer")
+# Configured independently of the root logger and of uvicorn's own logging
+# setup: buzz events are the only record when a call is disputed (spec 9),
+# so they must not silently vanish because nothing else in the process
+# happened to configure logging (the root logger defaults to WARNING).
+if not logger.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    logger.addHandler(_handler)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -109,20 +119,28 @@ def create_app(content_path: Optional[str] = None, backend: Optional[BuzzerInput
         snapshot = game.snapshot(now_tick=time.monotonic_ns())
         await manager.broadcast(json.dumps(snapshot))
 
+    def log_last_buzz(source: str) -> None:
+        # Every accepted or rejected edge gets logged, regardless of which
+        # input path produced it -- this is the only record when someone
+        # disputes a call (spec 9).
+        if not game.buzz_log:
+            return
+        entry = game.buzz_log[-1]
+        logger.info(
+            "buzz source=%s team=%s tick=%s result=%s phase=%s",
+            source,
+            entry["team"],
+            entry["tick"],
+            entry["result"],
+            entry["phase"],
+        )
+
     def on_buzz(team: int, tick_ns: int) -> None:
         # Called from the GPIO callback thread (or synchronously from the
         # mock's /dev/buzz route, which runs on the event loop thread --
         # run_coroutine_threadsafe works correctly from either).
         game.buzz(team, tick_ns)
-        if game.buzz_log:
-            entry = game.buzz_log[-1]
-            logger.info(
-                "buzz team=%s tick=%s result=%s phase=%s",
-                entry["team"],
-                entry["tick"],
-                entry["result"],
-                entry["phase"],
-            )
+        log_last_buzz("mock" if is_mock else "gpio")
         loop = loop_holder["loop"]
         if loop is not None:
             asyncio.run_coroutine_threadsafe(broadcast_state(), loop)
@@ -159,6 +177,15 @@ def create_app(content_path: Optional[str] = None, backend: Optional[BuzzerInput
     @app.get("/host")
     async def host_page():
         return FileResponse(STATIC_DIR / "host.html")
+
+    @app.get("/buzz/{team}")
+    async def phone_buzz_page(team: int):
+        # Per-team fallback buzzer, for when the physical buttons aren't
+        # working at all. Server-timestamped on receipt over Wi-Fi, not a
+        # kernel edge -- best-effort fairness only, see static/buzz.js.
+        if not (0 <= team < len(teams)):
+            raise HTTPException(status_code=404, detail="unknown team")
+        return FileResponse(STATIC_DIR / "buzz.html")
 
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -229,10 +256,13 @@ def create_app(content_path: Optional[str] = None, backend: Optional[BuzzerInput
         return game.snapshot(now_tick=time.monotonic_ns())
 
     @app.post("/api/manual_buzz/{team}")
-    async def api_manual_buzz(team: int):
+    async def api_manual_buzz(team: int, source: str = "host"):
         # Manual override: if a button fails mid-game the host can still
-        # register a buzz for that team by hand (spec 5, keyboard 1/2).
+        # register a buzz for that team by hand (spec 5, keyboard 1/2). Also
+        # used by the /buzz/{team} phone fallback page (source=phone), which
+        # passes no kernel edge, just this server-side receipt timestamp.
         game.buzz(team, tick_ns=time.monotonic_ns())
+        log_last_buzz(source)
         await broadcast_state()
         return game.snapshot(now_tick=time.monotonic_ns())
 

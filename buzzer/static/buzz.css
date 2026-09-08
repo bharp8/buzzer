@@ -1,0 +1,154 @@
+:root {
+  --bg: #07080c;
+  --text: #f4f5f9;
+  --text-dim: #8991a8;
+  --warn: #ff9d2e;
+  --good: #35c46b;
+  --bad: #ff5757;
+
+  --team-a: #1c6dff;
+  --team-b: #ff3b3b;
+
+  --display-font: "Arial Black", "Helvetica Neue", Arial, "Segoe UI", system-ui, sans-serif;
+  --body-font: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body-font);
+  overscroll-behavior: none;
+}
+
+body {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4vh;
+  padding: env(safe-area-inset-top, 12px) env(safe-area-inset-right, 12px)
+    env(safe-area-inset-bottom, 12px) env(safe-area-inset-left, 12px);
+  touch-action: manipulation;
+}
+
+#conn-dot {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top, 10px));
+  right: max(10px, env(safe-area-inset-right, 10px));
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+#conn-dot .dot {
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  background: var(--good);
+}
+
+#conn-dot.offline {
+  color: var(--bad);
+}
+
+#conn-dot.offline .dot {
+  background: var(--bad);
+}
+
+#fallback-note {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top, 10px));
+  left: max(10px, env(safe-area-inset-left, 10px));
+  right: 90px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--warn);
+  line-height: 1.3;
+}
+
+#team-name {
+  font-family: var(--display-font);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-size: clamp(1.3rem, 7vw, 2.2rem);
+  text-align: center;
+}
+
+body.team-a #team-name {
+  color: var(--team-a);
+}
+body.team-b #team-name {
+  color: var(--team-b);
+}
+
+#buzz-btn {
+  width: min(78vw, 60vh);
+  height: min(78vw, 60vh);
+  border-radius: 50%;
+  border: none;
+  font-family: var(--display-font);
+  font-weight: 900;
+  font-size: clamp(1.6rem, 11vw, 3.2rem);
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  background: #1a1d29;
+  transition: transform 0.08s ease, background-color 0.15s ease, color 0.15s ease;
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.04);
+}
+
+body.team-a #buzz-btn {
+  background: var(--team-a);
+  color: #06111f;
+}
+body.team-b #buzz-btn {
+  background: var(--team-b);
+  color: #1f0606;
+}
+
+#buzz-btn.tapped {
+  transform: scale(0.94);
+}
+
+#buzz-btn:disabled {
+  opacity: 0.55;
+}
+
+#buzz-btn.is-winner {
+  box-shadow: 0 0 0 8px #fff;
+}
+
+#buzz-btn.is-locked-out {
+  filter: grayscale(0.7) brightness(0.55);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #buzz-btn {
+    transition: none;
+  }
+}
+
+#status-text {
+  text-align: center;
+  font-size: clamp(0.95rem, 3.4vw, 1.35rem);
+  font-weight: 700;
+  color: var(--text-dim);
+  min-height: 2.4em;
+  padding: 0 6vw;
+  max-width: 32em;
+}

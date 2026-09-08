@@ -104,9 +104,21 @@ sudo systemctl enable --now buzzer.service
       the spec (55" TV across a room, phone in hand) — the `vw`/`clamp()`
       sizing was only checked by resizing a desktop browser window, never on
       real target hardware/screens.
+- [ ] Phone buzzer fallback (`/buzz/0`, `/buzz/1`): load both on real phones
+      connected to the Pi's actual AP/ethernet, not localhost. This is a
+      best-effort fallback (server-receipt timestamp, not a kernel edge —
+      see README "Fallback: phone buzzers"), so confirm it's at least
+      *usably* fair on the real network before trusting it mid-game: two
+      people tapping their phone buzzers close together should get a
+      believable winner, not one that's consistently biased toward
+      whichever phone happens to have lower Wi-Fi latency. If the bias is
+      bad enough to matter, say so rather than treating this as done.
 
 ## 7. Log review
 
 Confirm `journalctl -u buzzer` (or wherever logging ends up) actually shows
-`buzz team=... tick=... result=... phase=...` lines per spec section 9, so a
-disputed call can be resolved after the fact.
+`buzz source=... team=... tick=... result=... phase=...` lines per spec
+section 9, so a disputed call can be resolved after the fact. Also worth
+confirming this now that logging config was fixed to not silently depend on
+whatever uvicorn happens to set up (see commit adding the phone fallback) --
+verify actual `journalctl` output on the Pi, not just that the code runs.
