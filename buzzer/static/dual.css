@@ -1,11 +1,13 @@
 :root {
-  --bg: #07080c;
-  --bg-panel: #14161f;
-  --bg-cell: #1a1d29;
-  --line: #2a2e3d;
+  /* Same "Jeopardy Blue" approximation as board.css -- see the comment
+     there for sourcing. */
+  --bg: #000233;
+  --bg-panel: #0a0ecb;
+  --bg-cell: #1016e0;
+  --line: #2530a8;
   --gold: #ffc233;
   --text: #f4f5f9;
-  --text-dim: #8991a8;
+  --text-dim: #9098d8;
   --warn: #ff9d2e;
   --warn-bg: #3a2410;
   --good: #35c46b;
@@ -16,7 +18,7 @@
   --team-b: #1c6dff;
   --team-b-dim: #0d2e70;
 
-  --display-font: "Arial Black", "Helvetica Neue", Arial, "Segoe UI", system-ui, sans-serif;
+  --display-font: "Haettenschweiler", "Arial Narrow", Impact, "Helvetica Neue Condensed", "Helvetica Neue", Arial, sans-serif;
   --body-font: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 

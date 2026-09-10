@@ -1,12 +1,16 @@
 :root {
-  --bg: #07080c;
-  --bg-panel: #14161f;
-  --bg-cell: #1a1d29;
-  --line: #2a2e3d;
+  /* "Jeopardy Blue" (~#060CE9) is the closest widely-cited match for the
+     show's on-air board blue -- no public official brand hex exists, this
+     is the community-identified approximation, slightly deepened here for
+     a full-screen background rather than a broadcast-lit set. */
+  --bg: #000233;
+  --bg-panel: #0a0ecb;
+  --bg-cell: #1016e0;
+  --line: #2530a8;
   --gold: #ffc233;
   --gold-dim: #8a6a1f;
   --text: #f4f5f9;
-  --text-dim: #8991a8;
+  --text-dim: #9098d8;
   --warn: #ff9d2e;
   --warn-bg: #3a2410;
 
@@ -15,7 +19,11 @@
   --team-b: #1c6dff;
   --team-b-dim: #0d2e70;
 
-  --display-font: "Arial Black", "Helvetica Neue", Arial, "Segoe UI", system-ui, sans-serif;
+  /* The show's category/dollar-value board has used condensed sans faces
+     since the 1980s (Swiss 911, then Helvetica Inserat LT) -- approximated
+     here with widely-available condensed system fonts rather than vendoring
+     a web font, per the no-CDN/no-build-step constraint. */
+  --display-font: "Haettenschweiler", "Arial Narrow", Impact, "Helvetica Neue Condensed", "Helvetica Neue", Arial, sans-serif;
   --body-font: "Helvetica Neue", Arial, "Segoe UI", system-ui, sans-serif;
 }
 
