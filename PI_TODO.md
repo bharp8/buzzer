@@ -1,9 +1,44 @@
 # To do on the Raspberry Pi
 
-This project was built and tested entirely on a laptop with `BUZZER_BACKEND=mock`.
-Nothing in `buzzer/inputs/gpio.py` has run against real hardware yet. This file
-tracks everything that still needs doing/verifying once this repo is on the Pi.
-Do not consider the hardware path done until every item here is checked off.
+This project was built and tested entirely on a laptop with `BUZZER_BACKEND=mock`,
+then (2026-09-10) connected to over SSH and exercised against real hardware for
+the first time -- see "Done so far" below for what that covered. This file
+tracks everything that still needs doing/verifying. Do not consider the
+hardware path done until every item here is checked off.
+
+**Actual OS**: this card is Raspberry Pi OS on **Debian 13 "trixie"** (kernel
+6.18, Python 3.13), not Bookworm as the spec assumed. Nothing so far has
+needed anything Bookworm-specific, but if something behaves unexpectedly,
+check whether it's a trixie-vs-bookworm difference before assuming it's a
+code bug.
+
+## Done so far (2026-09-10, via SSH from the laptop, no buttons soldered)
+
+- Got SSH working: the SD card had **no customization applied at all**
+  (Imager's advanced-options hostname/user/SSH settings never actually got
+  written -- don't trust that dialog silently; verify `userconf.txt`/`ssh`/
+  `user-data` on the boot partition exist before assuming it worked next
+  time). Fixed by writing `userconf.txt` (user `bmh`) and an empty `ssh` file
+  directly onto the boot partition. Hostname set to `bmh` via `hostnamectl`
+  after first login.
+- Installed `requirements.txt` cleanly. `requirements-gpio.txt` (`lgpio`)
+  **did not** install cleanly out of the box -- see item 1, now fixed and
+  documented in the README's Pi setup section.
+- Verified `gpiochip0` + BCM pins 17/27 read correctly via `lgpio` directly
+  (item 3 below) -- both read LOW at rest, which is *expected* right now
+  since nothing is wired (no external pull-up), not a real fault.
+- Booted the actual app with `BUZZER_BACKEND=gpio`: it starts cleanly, the
+  startup self-test correctly flags both teams as unhealthy (again, expected
+  with floating pins), `/board` serves, `POST /api/*` all work. This is the
+  first real confirmation `GpioBackend` (`buzzer/inputs/gpio.py`) works
+  end-to-end against the real GPIO character device, not just imports cleanly.
+- Ran the full `pytest` suite on-device (Python 3.13, aarch64): 30/30 pass,
+  same as the laptop.
+- Network right now is a direct Ethernet cable to the laptop with Internet
+  Connection Sharing (laptop NATs its Wi-Fi to the Pi at 10.42.0.1/10.42.0.x)
+  so the Pi could reach apt/GitHub during setup. **This is not the venue
+  network** -- the Pi's own Wi-Fi AP (spec: 10.42.0.1) still needs setting up
+  separately; see item 6.
 
 ## 1. Install
 
@@ -13,10 +48,27 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt -r requirements-gpio.txt
 ```
 
-`requirements-gpio.txt` installs `lgpio`. Confirm it actually installs cleanly
-on Raspberry Pi OS Bookworm — this was never attempted on the laptop (no `pip`
-was even available there without an apt install, let alone `lgpio`, which
-needs the Pi's GPIO character device).
+**Update**: on a fresh trixie install, this failed twice before working:
+
+1. `lgpio`'s wheel build needs `swig` (SWIG isn't installed by default):
+   ```
+   error: command 'swig' failed: No such file or directory
+   ```
+2. After installing swig, it built the wrapper but failed to **link** against
+   the system GPIO library:
+   ```
+   /usr/bin/ld: cannot find -llgpio: No such file or directory
+   ```
+   `liblgpio1` (the runtime `.so`) was already present, but not
+   `liblgpio-dev` (which provides the unversioned symlink + headers needed to
+   build against it).
+
+Fix, before `pip install -r requirements-gpio.txt`:
+```bash
+sudo apt-get install -y swig build-essential python3-dev liblgpio-dev
+```
+This is now documented in README.md's Pi setup section — keep both in sync
+if either changes.
 
 ## 2. Wire it up per the spec
 
@@ -30,21 +82,20 @@ pressed should read ~0V. If a line reads low with the button unpressed,
 `GpioBackend.self_test()` should catch it and the host panel should show a
 warning — but confirm this actually happens (see item 4).
 
-## 3. Sanity-check `gpiochip0` numbering
+## 3. Sanity-check `gpiochip0` numbering — ✅ done 2026-09-10
 
-The code assumes `gpiochip0` and BCM pin numbers 17/27 map the way `lgpio`
-expects on this specific Pi. On some Pi 4/5 + lgpio + kernel combos the chip
-number or offset differs. Run this before trusting anything else:
+Confirmed: `gpiochip0` is `pinctrl-bcm2711` (58 lines) and BCM 17/27 map the
+way `lgpio` expects -- `gpio_claim_input`/`gpio_read` on both work. Both
+currently read 0 (LOW), which is *expected* since nothing is wired yet (no
+external pull-up) -- do not treat that as a chip/offset problem. Re-verify
+this reads 1 (HIGH) once the pull-ups are actually wired (item 2/4).
 
 ```python
 import lgpio
 h = lgpio.gpiochip_open(0)
 lgpio.gpio_claim_input(h, 17)
-print(lgpio.gpio_read(h, 17))  # should print 1 (idle/HIGH) with nothing pressed
+print(lgpio.gpio_read(h, 17))  # should print 1 (idle/HIGH) once wired with pull-ups
 ```
-
-If this doesn't print 1, stop and figure out the correct chip/offset before
-running the app — everything downstream assumes this is right.
 
 ## 4. Run the app with the real backend and confirm, physically, in this order
 
@@ -52,9 +103,11 @@ running the app — everything downstream assumes this is right.
 BUZZER_BACKEND=gpio ./run.sh
 ```
 
-- [ ] Startup self-test: with both buttons unpressed, no warnings on `/host`.
-      Hold one button down at startup, restart the service, confirm the host
-      panel shows a warning naming the correct team, and the app does not crash.
+- [x] Startup self-test doesn't crash and correctly surfaces a warning per
+      unhealthy team — confirmed 2026-09-10 with both pins floating (no
+      pull-ups wired yet), both teams correctly flagged. Still need: re-check
+      with pull-ups actually wired that *no* warning shows at rest, and that
+      holding one button down at startup still names the right team.
 - [ ] Single press, each team independently, latches correctly and shows on
       `/board` from across the room.
 - [ ] **Debounce**: tap a button rapidly/lightly to try to induce contact

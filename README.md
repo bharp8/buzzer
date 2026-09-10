@@ -37,9 +37,12 @@ Visit the pages:
 
 ## Raspberry Pi Setup
 
-Install the GPIO requirements in addition to the main ones:
+`lgpio` builds a native extension, so install its build dependencies first —
+without these, `pip install -r requirements-gpio.txt` fails (first on a
+missing `swig`, then on a linker error for `-llgpio` once swig's installed):
 
 ```bash
+sudo apt-get install -y swig build-essential python3-dev liblgpio-dev
 pip install -r requirements.txt -r requirements-gpio.txt
 ```
 
