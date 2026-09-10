@@ -10,10 +10,10 @@
   --warn: #ff9d2e;
   --warn-bg: #3a2410;
 
-  --team-a: #1c6dff;
-  --team-a-dim: #0d2e70;
-  --team-b: #ff3b3b;
-  --team-b-dim: #6e1414;
+  --team-a: #ff3b3b;
+  --team-a-dim: #6e1414;
+  --team-b: #1c6dff;
+  --team-b-dim: #0d2e70;
 
   --display-font: "Arial Black", "Helvetica Neue", Arial, "Segoe UI", system-ui, sans-serif;
   --body-font: "Helvetica Neue", Arial, "Segoe UI", system-ui, sans-serif;
@@ -278,8 +278,7 @@ body {
 
 /* clue / answer stage */
 
-.clue-stage,
-.answer-stage {
+.clue-stage {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -293,10 +292,10 @@ body {
 .stage-tag {
   font-family: var(--display-font);
   font-weight: 900;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--gold);
-  font-size: clamp(0.9rem, 2vw, 1.8rem);
+  color: var(--text);
+  font-size: clamp(1.4rem, 3.5vw, 3rem);
   margin-bottom: clamp(10px, 2vh, 28px);
 }
 
@@ -308,8 +307,9 @@ body {
   max-width: 90%;
 }
 
-.answer-stage .stage-text {
+.stage-value {
   color: var(--gold);
+  font-size: clamp(3rem, 12vw, 9rem);
 }
 
 .winner-banner {

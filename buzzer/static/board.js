@@ -141,13 +141,9 @@
       return;
     }
 
-    if (state.phase === "REVEALED") {
-      stageEl.appendChild(buildAnswerStage(state));
-      return;
-    }
-
-    // READING, ARMED, LOCKED all show the clue
-    stageEl.appendChild(buildClueStage(state));
+    // READING, ARMED, LOCKED, REVEALED all show the same category + value
+    // display -- no clue or answer text, the host reads those from paper.
+    stageEl.appendChild(buildActiveStage(state));
   }
 
   function buildBoardGrid(state) {
@@ -183,49 +179,29 @@
     return grid;
   }
 
-  function buildClueStage(state) {
+  function buildActiveStage(state) {
     const wrap = document.createElement("div");
     wrap.className = "clue-stage";
+    const clue = state.active_clue;
 
     const tag = document.createElement("div");
     tag.className = "stage-tag";
-    const clue = state.active_clue;
-    tag.textContent = clue
-      ? (state.board[clue.category] ? state.board[clue.category].category : "") +
-        " — $" +
-        clue.value
-      : "";
+    tag.textContent = clue && state.board[clue.category] ? state.board[clue.category].category : "";
     wrap.appendChild(tag);
 
-    const text = document.createElement("div");
-    text.className = "stage-text";
-    text.textContent = clue ? clue.text : "";
-    wrap.appendChild(text);
+    const value = document.createElement("div");
+    value.className = "stage-text stage-value";
+    value.textContent = clue ? "$" + clue.value : "";
+    wrap.appendChild(value);
 
-    if (state.phase === "LOCKED" && state.winner !== null && state.winner !== undefined) {
+    const hasWinner = state.winner !== null && state.winner !== undefined;
+    if ((state.phase === "LOCKED" || state.phase === "REVEALED") && hasWinner) {
       const banner = document.createElement("div");
       const team = state.teams[state.winner];
       banner.className = "winner-banner " + (state.winner === 0 ? "team-a" : "team-b");
-      banner.textContent = (team ? team.name : "Team") + " buzzed in!";
+      banner.textContent = (team ? team.name : "Team") + (state.phase === "LOCKED" ? " buzzed in!" : " got it!");
       wrap.appendChild(banner);
     }
-
-    return wrap;
-  }
-
-  function buildAnswerStage(state) {
-    const wrap = document.createElement("div");
-    wrap.className = "answer-stage";
-
-    const tag = document.createElement("div");
-    tag.className = "stage-tag";
-    tag.textContent = "Answer";
-    wrap.appendChild(tag);
-
-    const text = document.createElement("div");
-    text.className = "stage-text";
-    text.textContent = state.reveal || "";
-    wrap.appendChild(text);
 
     return wrap;
   }

@@ -1,6 +1,6 @@
 {
   "title": "Ultimate Trivia Showdown",
-  "teams": ["Team A", "Team B"],
+  "teams": ["Red", "Blue"],
   "categories": [
     {
       "name": "World Capitals",
