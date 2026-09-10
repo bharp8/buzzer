@@ -172,17 +172,28 @@ class Game:
             self.phase = Phase.REVEALED
 
     def mark_incorrect(self, tick_ns: int) -> None:
+        # No score penalty -- a wrong answer just passes the clue on.
         with self._lock:
             if self.phase is not Phase.LOCKED:
                 raise IllegalTransitionError(f"cannot mark incorrect from {self.phase}")
-            self._teams[self.winner].score -= self.active_clue.value
             self._already_answered.add(self.winner)
             self.winner = None
             self.winner_tick = None
-            if len(self._already_answered) >= len(self._teams):
+
+            remaining = [i for i in range(len(self._teams)) if i not in self._already_answered]
+            if not remaining:
                 self.reveal_text = self.active_clue.answer
                 self.phase = Phase.REVEALED
+            elif len(remaining) == 1:
+                # Exactly one team left with a default two-team game: there's
+                # no one to race against, so hand it to them directly rather
+                # than re-arming and making them buzz for an empty contest.
+                self.phase = Phase.LOCKED
+                self.winner = remaining[0]
+                self.winner_tick = tick_ns
             else:
+                # More than two teams and more than one still eligible --
+                # no single team to auto-select, so they compete for it.
                 self.phase = Phase.ARMED
 
     def reveal(self, tick_ns: int) -> None:

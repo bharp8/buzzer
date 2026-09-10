@@ -92,10 +92,13 @@
     if (myTeam.locked_out) {
       statusEl.textContent = "Locked out — you buzzed too early. Wait for it to clear.";
     } else if (isWinner) {
-      statusEl.textContent = "You buzzed in! Waiting for the host.";
+      // Could be a real buzz, or an automatic hand-off after the other
+      // team answered wrong (see Game.mark_incorrect) -- don't claim
+      // a buzz that may not have happened.
+      statusEl.textContent = "Your turn! Waiting for the host.";
     } else if (otherWon) {
       const other = state.teams[state.winner];
-      statusEl.textContent = (other ? other.name : "The other team") + " buzzed in first.";
+      statusEl.textContent = (other ? other.name : "The other team") + "'s turn.";
     } else if (state.phase === "READING") {
       statusEl.textContent = "Wait for it — buzzing now counts as a false start.";
     } else if (state.phase === "ARMED") {

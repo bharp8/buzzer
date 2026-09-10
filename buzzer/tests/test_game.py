@@ -133,21 +133,21 @@ def test_debounce_two_edges_on_one_pin_count_once():
     assert len(g.buzz_log) == 1
 
 
-def test_mark_incorrect_deducts_rearms_and_excludes_team():
+def test_mark_incorrect_no_penalty_auto_locks_other_team():
     g = armed_game()
     g.buzz(0, tick_ns=10 * MS)
     g.mark_incorrect(tick_ns=20 * MS)
 
-    assert g.phase is Phase.ARMED
-    assert g.snapshot(now_tick=21 * MS)["teams"][0]["score"] == -200
+    # No score penalty for a wrong answer.
+    assert g.snapshot(now_tick=21 * MS)["teams"][0]["score"] == 0
 
-    # The excluded team cannot buzz again on this clue.
+    # With only one team left (the default two-team game), they're locked
+    # in directly -- no re-buzz needed, there's no one to race against.
+    assert g.phase is Phase.LOCKED
+    assert g.winner == 1
+
+    # The excluded team can't retake control even if they buzz again.
     g.buzz(0, tick_ns=30 * MS)
-    assert g.phase is Phase.ARMED
-    assert g.winner is None
-
-    # The other team still can.
-    g.buzz(1, tick_ns=40 * MS)
     assert g.phase is Phase.LOCKED
     assert g.winner == 1
 
@@ -156,12 +156,42 @@ def test_all_teams_wrong_reveals():
     g = armed_game()
     g.buzz(0, tick_ns=10 * MS)
     g.mark_incorrect(tick_ns=20 * MS)
-    assert g.phase is Phase.ARMED
+    assert g.phase is Phase.LOCKED
+    assert g.winner == 1  # auto-locked, no re-buzz needed
+
+    g.mark_incorrect(tick_ns=30 * MS)
+    assert g.phase is Phase.REVEALED
+    assert g.reveal_text is not None
+
+
+def test_mark_incorrect_rearms_when_multiple_teams_still_eligible():
+    # With more than two teams, auto-locking only kicks in once exactly one
+    # is left -- with two or more still eligible there's no single team to
+    # pick, so they have to buzz for it.
+    teams = [Team("Red"), Team("Blue"), Team("Green")]
+    categories = [
+        Category(
+            name=f"Cat {i}",
+            clues=[
+                Clue(value=(r + 1) * 200, text=f"clue {i}-{r}", answer=f"answer {i}-{r}")
+                for r in range(5)
+            ],
+        )
+        for i in range(5)
+    ]
+    g = Game(teams, categories)
+    g.select_clue(0, 0, tick_ns=0)
+    g.arm(tick_ns=1 * MS)
+
+    g.buzz(0, tick_ns=10 * MS)
+    g.mark_incorrect(tick_ns=20 * MS)
+    assert g.phase is Phase.ARMED  # two teams (1, 2) still eligible
+    assert g.winner is None
 
     g.buzz(1, tick_ns=30 * MS)
     g.mark_incorrect(tick_ns=40 * MS)
-    assert g.phase is Phase.REVEALED
-    assert g.reveal_text is not None
+    assert g.phase is Phase.LOCKED  # only team 2 left -- auto-locked
+    assert g.winner == 2
 
 
 def test_illegal_transitions_rejected_without_mutating_state():

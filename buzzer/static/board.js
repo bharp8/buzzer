@@ -199,7 +199,10 @@
       const banner = document.createElement("div");
       const team = state.teams[state.winner];
       banner.className = "winner-banner " + (state.winner === 0 ? "team-a" : "team-b");
-      banner.textContent = (team ? team.name : "Team") + (state.phase === "LOCKED" ? " buzzed in!" : " got it!");
+      // LOCKED can be reached either by an actual buzz or by an automatic
+      // hand-off after the other team answered wrong (see
+      // Game.mark_incorrect), so this can't claim they buzzed in.
+      banner.textContent = (team ? team.name : "Team") + (state.phase === "LOCKED" ? " — answer now!" : " got it!");
       wrap.appendChild(banner);
     }
 
