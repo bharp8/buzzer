@@ -153,6 +153,18 @@
       score.textContent = formatScore(team.score);
       card.appendChild(score);
 
+      const buttons = document.createElement("div");
+      buttons.className = "team-buttons";
+
+      // Fallback if a physical button fails mid-game -- same as /host.
+      const canBuzz = state.phase === "READING" || state.phase === "ARMED";
+      const buzzBtn = document.createElement("button");
+      buzzBtn.className = "pill-btn buzz";
+      buzzBtn.textContent = "Buzz " + (idx + 1);
+      buzzBtn.disabled = !canBuzz;
+      buzzBtn.addEventListener("click", () => post(`/api/manual_buzz/${idx}`));
+      buttons.appendChild(buzzBtn);
+
       // The only way to resolve a Daily Double or Final Jeopardy wager --
       // neither of those touches score automatically, by design (see
       // README "Daily Double & Final Jeopardy"), so this needs to be
@@ -168,8 +180,9 @@
         if (Number.isNaN(delta)) return;
         post("/api/adjust_score", { team: idx, delta });
       });
-      card.appendChild(adjustBtn);
+      buttons.appendChild(adjustBtn);
 
+      card.appendChild(buttons);
       teamsEl.appendChild(card);
     });
   }

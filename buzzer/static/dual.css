@@ -252,9 +252,17 @@ button {
   opacity: 0.3;
 }
 
-.team-card .pill-btn {
-  align-self: stretch;
+.team-buttons {
+  display: flex;
+  gap: 6px;
+}
+.team-buttons .pill-btn {
+  flex: 1 1 auto;
   text-align: center;
+}
+.pill-btn.buzz {
+  background: var(--gold);
+  color: #241a00;
 }
 
 #actions {
