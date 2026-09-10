@@ -2,6 +2,12 @@
 
 A two-team Jeopardy-style buzzer system built with FastAPI, running on Raspberry Pi with GPIO button inputs. Features a web-based game board display and mobile-friendly host control panel with keyboard shortcuts.
 
+The Pi itself runs headless — no monitor attached, no clue/answer text
+displayed anywhere (the host reads those from paper). `/board` and `/host`
+are just pages any browser on the Pi's network can load: point a laptop at
+`/board` for the shared display, and a phone (or that same laptop, in
+another tab) at `/host` for the host controls.
+
 ## Laptop Development Setup
 
 Create a virtual environment and install dependencies:

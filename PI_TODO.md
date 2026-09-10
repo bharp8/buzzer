@@ -192,11 +192,17 @@ simultaneously (discovered the hard way: the Pi's `eth0` and `wlan0` both
 tried to claim `10.42.0.1/24` at once, and connectivity broke until one side
 was moved with `ipv4.addresses` to a different subnet).
 
-- [ ] Load `/board` on the actual TV/laptop and `/host` on the actual
-      phone/laptop that will be used, at the actual distances described in
-      the spec (55" TV across a room, phone in hand) — the `vw`/`clamp()`
-      sizing was only checked by resizing a desktop browser window, never on
-      real target hardware/screens.
+- [ ] Actual deployment plan: Pi runs headless (no TV/monitor attached), the
+      laptop is the `/board` display, and the host uses `/host` from a
+      phone (or the laptop, if that's easier on the night — both just work,
+      it's a browser tab either way, no server-side distinction between
+      "board device" and "host device"). Load `/board` on the actual laptop
+      and `/host` on the actual phone that will be used, connected to the
+      Pi's AP — the `vw`/`clamp()` sizing was only checked by resizing a
+      desktop browser window, never on the real target screens. Since the
+      board no longer shows clue/answer text (host reads those from paper),
+      the "55in TV across a room" legibility concern from the original spec
+      matters less, but still worth a real check on the actual laptop.
 - [ ] Phone buzzer fallback (`/buzz/0`, `/buzz/1`): load both on real phones
       connected to the Pi's actual AP/ethernet, not localhost. This is a
       best-effort fallback (server-receipt timestamp, not a kernel edge —
