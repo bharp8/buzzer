@@ -133,6 +133,22 @@ BUZZER_BACKEND=gpio ./run.sh
 - [ ] Full runthrough of an actual round (several clues, a wrong answer, a
       correct answer, a fully-answered-wrong clue) with real people racing
       real buttons, not curl.
+- [ ] **Auto-arm on tile click** (added 2026-09-11, only tested via curl/
+      scripted requests so far, never with a real finger on a real button
+      immediately after a real click): select a tile on `/host` or `/dual`
+      and confirm a real buzz registers correctly right after, with no
+      perceptible gap where the buzzer isn't actually live yet.
+- [ ] **Daily Double** (never tested with real hardware): select a
+      preselected Daily Double tile and confirm a real button press during
+      that window does *nothing* -- no latch, no false-start penalty,
+      nothing in the game state, even though the log will still show the
+      raw edge. Board should show "Daily Double", not a dollar value.
+- [ ] **Round transition / Final Jeopardy** (never tested with real
+      hardware, no reason to expect hardware-specific issues since neither
+      touches the buzzer path, but worth a real runthrough once real people
+      are playing): confirm "Next round" moves to round 2's categories with
+      round 1's used-clue state untouched, and "Start Final Jeopardy"
+      correctly blocks all buzzing (board, host, and phone fallback alike).
 
 ## 5. systemd — ✅ done 2026-09-10
 

@@ -11,14 +11,15 @@ single device instead? See `/dual` below.
 
 ## Running board + host on one device
 
-`/dual` shows both `/board` and `/host` side by side in a single browser
-tab (each in its own `<iframe>` — neither page changes, both still work
-fine loaded standalone too). Host controls on the left, board on the
-right; stacks vertically instead on narrow/short windows. Keyboard
-shortcuts work no matter which pane has focus — `/dual` has its own
-top-level listener for exactly that, since a browser only ever routes
-keypresses to whichever iframe (or the outer page) currently has focus,
-and the board pane has no shortcut handler of its own.
+`/dual` shows a trimmed host control strip on the left (phase, teams,
+round info, the five action buttons, and nothing else — no board-select
+grid, no phone-buzzer links, no reset button) and the board display on
+the right, both live in a single tab. The board pane doubles as the
+tile picker: click a category/value directly on it to select **and**
+arm a clue in one action, instead of using a separate grid. Keyboard
+shortcuts (space/1/2/y/n/r/esc) work anywhere on the page. `/board` and
+`/host` are unaffected and still work exactly as before if loaded on
+their own — `/dual` is a separate page, not a wrapper around either.
 
 ## Laptop Development Setup
 
@@ -105,10 +106,10 @@ are — both bit us once; see `PI_TODO.md` item 6 for details.
 
 ## GPIO Wiring (Raspberry Pi 4, Bookworm)
 
-| Team   | GPIO (BCM) | Header Pin | Notes                                             |
-|--------|-----------|-----------|---------------------------------------------------|
-| Team A | 17        | 11        | Active-low; 4.7kΩ pull-up to 3.3V; 100nF → GND |
-| Team B | 27        | 13        | Active-low; 4.7kΩ pull-up to 3.3V; 100nF → GND |
+| Team | GPIO (BCM) | Header Pin | Notes                                             |
+|------|-----------|-----------|---------------------------------------------------|
+| Red  | 17        | 11        | Active-low; 4.7kΩ pull-up to 3.3V; 100nF → GND |
+| Blue | 27        | 13        | Active-low; 4.7kΩ pull-up to 3.3V; 100nF → GND |
 
 Both lines idle HIGH; a button press pulls LOW (falling edge). RC filters cap at ~100 µs.
 
@@ -125,17 +126,73 @@ Both lines idle HIGH; a button press pulls LOW (falling edge). RC filters cap at
 | `TEAM_B_GPIO` | `27` | GPIO pin for Team B (BCM) |
 | `GAME_CONTENT_PATH` | `buzzer/content/game.json` | Path to game content JSON |
 
+## Game content
+
+No clue or answer text lives anywhere in this system — the host reads both
+from paper. `content/game.json` only ever needs category names, dollar
+values, and which clues are Daily Doubles:
+
+```json
+{
+  "title": "...",
+  "teams": ["Red", "Blue"],
+  "rounds": [
+    {
+      "name": "Jeopardy",
+      "categories": [
+        {"name": "World Capitals", "clues": [
+          {"value": 200}, {"value": 400}, {"value": 600},
+          {"value": 800, "daily_double": true}, {"value": 1000}
+        ]}
+      ]
+    },
+    {"name": "Double Jeopardy", "categories": [ /* same shape, 5 or 6 categories */ ]}
+  ],
+  "final_jeopardy": {"category": "20th Century History"}
+}
+```
+
+- At least one round; each round needs 5 or 6 categories, each with exactly
+  5 clues.
+- `daily_double` is optional per clue (defaults to `false`). It's never
+  shown on `/board`; the host's own board-select grid (on `/host` and
+  `/dual`) shows a subtle marker so the host knows in advance, matching how
+  real Jeopardy production knows even though contestants don't.
+- `final_jeopardy` is required — just a category name, no clue/answer text.
+- Selecting a Daily Double skips the buzzer race entirely (see "Daily
+  Double & Final Jeopardy" below).
+
 ## Host Panel Keyboard Shortcuts
 
 | Key | Action |
 |-----|--------|
-| Space | Arm the buzzer |
+| Space | Arm the buzzer (redundant most of the time — selecting a tile arms it automatically now) |
 | `1` | Manual buzz override for Team A |
 | `2` | Manual buzz override for Team B |
 | `y` | Mark the buzzed-in team correct |
 | `n` | Mark the buzzed-in team incorrect |
-| `r` | Reveal answer |
+| `r` | Skip straight to "done" without adjudicating (e.g. time's up) |
 | Esc | Return to board |
+
+## Daily Double & Final Jeopardy
+
+Both are intentionally paper-based, like the rest of the clue content — no
+digital wagering, no auto-scoring. The host applies results by hand with
+the existing manual score-adjust control (the "Adjust" button per team on
+`/host`, or a keyboard-free equivalent isn't needed on `/dual` since the
+team panels there are read-only — use `/host` on a phone for that, or
+`POST /api/adjust_score`).
+
+**Daily Double**: clicking a flagged tile shows "Daily Double" instead of a
+dollar value and skips arming entirely — there's no buzzer race, because
+the host picks every tile (not a team), so there's no "team that found it"
+to hand it to automatically. Ask whichever team you choose to wager and
+answer verbally, then adjust their score by hand and return to the board.
+
+**Final Jeopardy**: click "Start Final Jeopardy" on `/host` or `/dual`
+(enabled any time from the board view). The board shows the category with
+no buzzing possible. Teams wager and answer on paper; reveal the answer
+verbally, adjust each team's score by hand, then "Back to board" to finish.
 
 (Shortcuts work on `/host` page; test on the device it will display on.)
 
