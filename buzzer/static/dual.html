@@ -8,9 +8,39 @@
 </head>
 <body>
   <div id="layout">
-    <iframe id="host-pane" src="/host" title="Host controls"></iframe>
-    <iframe id="board-pane" src="/board" title="Board display"></iframe>
+    <div id="host-pane">
+      <div id="topbar">
+        <div id="phase-badge">--</div>
+        <div id="conn-dot"><span class="dot"></span><span class="label">connecting…</span></div>
+      </div>
+
+      <div id="warnings"></div>
+
+      <div id="teams"></div>
+
+      <div id="active-clue" class="hidden"></div>
+
+      <div id="round-bar">
+        <span id="round-label"></span>
+        <button class="pill-btn" id="btn-next-round">Next round</button>
+        <button class="pill-btn" id="btn-start-fj">Start Final Jeopardy</button>
+      </div>
+
+      <div id="actions">
+        <button class="action-btn arm" id="btn-arm">Arm<span class="key-hint">space</span></button>
+        <button class="action-btn reveal" id="btn-reveal">Reveal<span class="key-hint">r</span></button>
+        <button class="action-btn correct" id="btn-correct">Correct<span class="key-hint">y</span></button>
+        <button class="action-btn incorrect" id="btn-incorrect">Incorrect<span class="key-hint">n</span></button>
+        <button class="action-btn back" id="btn-back">Back to board<span class="key-hint">esc</span></button>
+      </div>
+    </div>
+
+    <div id="board-pane">
+      <div id="board-teams"></div>
+      <div id="board-stage"></div>
+    </div>
   </div>
+
   <script src="/static/dual.js"></script>
 </body>
 </html>

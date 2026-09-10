@@ -8,12 +8,15 @@
   const connDotEl = document.getElementById("conn-dot");
   const boardGridEl = document.getElementById("board-grid");
   const phoneBuzzerLinksEl = document.getElementById("phone-buzzer-links");
+  const roundLabelEl = document.getElementById("round-label");
 
   const btnArm = document.getElementById("btn-arm");
   const btnReveal = document.getElementById("btn-reveal");
   const btnCorrect = document.getElementById("btn-correct");
   const btnIncorrect = document.getElementById("btn-incorrect");
   const btnBack = document.getElementById("btn-back");
+  const btnNextRound = document.getElementById("btn-next-round");
+  const btnStartFj = document.getElementById("btn-start-fj");
   const resetBtn = document.getElementById("reset-btn");
 
   let socket = null;
@@ -79,6 +82,22 @@
     }
   }
 
+  // Selecting a tile auto-arms it immediately -- no separate host step.
+  // A Daily Double skips READING entirely (see Game.select_clue), so only
+  // follow up with arm() when the clue actually landed in READING.
+  async function selectAndArm(category, row) {
+    const res = await post("/api/select_clue", { category, row });
+    if (!res || !res.ok) return;
+    try {
+      const snap = await res.json();
+      if (snap.phase === "READING") {
+        await post("/api/arm");
+      }
+    } catch (err) {
+      console.error("bad select_clue response", err);
+    }
+  }
+
   function formatScore(n) {
     const sign = n < 0 ? "-$" : "$";
     return sign + Math.abs(n).toLocaleString("en-US");
@@ -101,6 +120,7 @@
     renderTeams(state);
     renderActiveClue(state);
     renderActions(state);
+    renderRoundBar(state);
     renderBoardGrid(state);
     renderPhoneBuzzerLinks(state);
   }
@@ -164,6 +184,19 @@
   }
 
   function renderActiveClue(state) {
+    if (state.phase === "FINAL_JEOPARDY") {
+      activeClueEl.classList.remove("hidden");
+      activeClueEl.innerHTML = "";
+      const meta = document.createElement("div");
+      meta.className = "clue-meta";
+      meta.textContent = "Final Jeopardy";
+      activeClueEl.appendChild(meta);
+      const text = document.createElement("div");
+      text.textContent = state.final_jeopardy_category || "";
+      activeClueEl.appendChild(text);
+      return;
+    }
+
     const clue = state.active_clue;
     if (!clue || state.phase === "IDLE") {
       activeClueEl.classList.add("hidden");
@@ -176,21 +209,8 @@
 
     const meta = document.createElement("div");
     meta.className = "clue-meta";
-    meta.textContent = catName + " — $" + clue.value;
+    meta.textContent = clue.daily_double ? catName + " — Daily Double" : catName + " — $" + clue.value;
     activeClueEl.appendChild(meta);
-
-    const text = document.createElement("div");
-    text.textContent = clue.text;
-    activeClueEl.appendChild(text);
-
-    if (state.phase === "REVEALED" && state.reveal) {
-      const ans = document.createElement("div");
-      ans.style.marginTop = "6px";
-      ans.style.color = "var(--gold)";
-      ans.style.fontWeight = "700";
-      ans.textContent = "Answer: " + state.reveal;
-      activeClueEl.appendChild(ans);
-    }
   }
 
   function renderActions(state) {
@@ -199,11 +219,20 @@
     btnReveal.disabled = !(phase === "READING" || phase === "ARMED" || phase === "LOCKED");
     btnCorrect.disabled = phase !== "LOCKED";
     btnIncorrect.disabled = phase !== "LOCKED";
-    btnBack.disabled = phase !== "REVEALED";
+    btnBack.disabled = !(phase === "REVEALED" || phase === "FINAL_JEOPARDY");
+  }
+
+  function renderRoundBar(state) {
+    const roundNum = (state.round_index ?? 0) + 1;
+    roundLabelEl.textContent = `Round ${roundNum} of ${state.total_rounds}: ${state.round_name}`;
+    const idle = state.phase === "IDLE";
+    btnNextRound.disabled = !idle || state.round_index >= state.total_rounds - 1;
+    btnStartFj.disabled = !idle;
   }
 
   function renderBoardGrid(state) {
     boardGridEl.innerHTML = "";
+    if (state.phase === "FINAL_JEOPARDY") return;
     const selectable = state.phase === "IDLE" || state.phase === "REVEALED";
 
     state.board.forEach((cat, catIdx) => {
@@ -217,12 +246,10 @@
 
       cat.clues.forEach((clue, rowIdx) => {
         const btn = document.createElement("button");
-        btn.className = "board-clue-btn";
+        btn.className = "board-clue-btn" + (clue.daily_double ? " is-daily-double" : "");
         btn.textContent = clue.used ? "" : "$" + clue.value;
         btn.disabled = !selectable || clue.used;
-        btn.addEventListener("click", () =>
-          post("/api/select_clue", { category: catIdx, row: rowIdx })
-        );
+        btn.addEventListener("click", () => selectAndArm(catIdx, rowIdx));
         row.appendChild(btn);
       });
 
@@ -251,6 +278,8 @@
   btnCorrect.addEventListener("click", () => post("/api/mark_correct"));
   btnIncorrect.addEventListener("click", () => post("/api/mark_incorrect"));
   btnBack.addEventListener("click", () => post("/api/return_to_board"));
+  btnNextRound.addEventListener("click", () => post("/api/next_round"));
+  btnStartFj.addEventListener("click", () => post("/api/start_final_jeopardy"));
   resetBtn.addEventListener("click", () => {
     if (window.confirm("Reset the entire game? Scores and board progress will be lost.")) {
       post("/api/reset_game");

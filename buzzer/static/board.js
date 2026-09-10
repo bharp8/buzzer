@@ -137,13 +137,44 @@
     stageEl.innerHTML = "";
 
     if (state.phase === "IDLE") {
+      stageEl.appendChild(buildRoundLabel(state));
       stageEl.appendChild(buildBoardGrid(state));
       return;
     }
 
+    if (state.phase === "FINAL_JEOPARDY") {
+      stageEl.appendChild(buildFinalJeopardyStage(state));
+      return;
+    }
+
     // READING, ARMED, LOCKED, REVEALED all show the same category + value
-    // display -- no clue or answer text, the host reads those from paper.
+    // (or DAILY DOUBLE) display -- no clue or answer text, the host reads
+    // those from paper.
     stageEl.appendChild(buildActiveStage(state));
+  }
+
+  function buildRoundLabel(state) {
+    const label = document.createElement("div");
+    label.className = "round-label";
+    label.textContent = state.round_name || "";
+    return label;
+  }
+
+  function buildFinalJeopardyStage(state) {
+    const wrap = document.createElement("div");
+    wrap.className = "clue-stage";
+
+    const tag = document.createElement("div");
+    tag.className = "stage-tag";
+    tag.textContent = "Final Jeopardy";
+    wrap.appendChild(tag);
+
+    const value = document.createElement("div");
+    value.className = "stage-text stage-value";
+    value.textContent = state.final_jeopardy_category || "";
+    wrap.appendChild(value);
+
+    return wrap;
   }
 
   function buildBoardGrid(state) {
@@ -183,15 +214,21 @@
     const wrap = document.createElement("div");
     wrap.className = "clue-stage";
     const clue = state.active_clue;
+    const catName = clue && state.board[clue.category] ? state.board[clue.category].category : "";
 
     const tag = document.createElement("div");
     tag.className = "stage-tag";
-    tag.textContent = clue && state.board[clue.category] ? state.board[clue.category].category : "";
+    tag.textContent = catName;
     wrap.appendChild(tag);
 
     const value = document.createElement("div");
-    value.className = "stage-text stage-value";
-    value.textContent = clue ? "$" + clue.value : "";
+    if (clue && clue.daily_double) {
+      value.className = "stage-text stage-value daily-double";
+      value.textContent = "Daily Double";
+    } else {
+      value.className = "stage-text stage-value";
+      value.textContent = clue ? "$" + clue.value : "";
+    }
     wrap.appendChild(value);
 
     const hasWinner = state.winner !== null && state.winner !== undefined;

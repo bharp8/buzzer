@@ -307,6 +307,29 @@ button {
   grid-column: span 2;
 }
 
+/* ---------- round bar ---------- */
+
+#round-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  flex-wrap: wrap;
+}
+
+#round-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex: 1 1 auto;
+}
+
+#round-bar .pill-btn {
+  flex: 0 0 auto;
+}
+
 /* ---------- board grid ---------- */
 
 #board-section {
@@ -358,6 +381,12 @@ button {
 .board-clue-btn:disabled {
   opacity: 0.25;
   color: var(--text-dim);
+}
+
+/* Host-only heads-up, never shown on the public board -- like real
+   Jeopardy, only production (here: the host) knows in advance. */
+.board-clue-btn.is-daily-double:not(:disabled) {
+  box-shadow: inset 0 0 0 2px var(--gold);
 }
 
 /* ---------- phone buzzer fallback links ---------- */
