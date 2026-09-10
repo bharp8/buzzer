@@ -3,6 +3,10 @@
 No FastAPI imports, no GPIO imports, no file or network I/O, no calls to the
 clock. Every method that needs "now" takes it as an explicit tick (ns)
 argument from the caller, so behaviour is fully deterministic and testable.
+
+No clue or answer text lives anywhere in this module (or the content file):
+the host reads both from paper. The system only ever needs a category name,
+a dollar value, and whether a clue is a Daily Double.
 """
 from __future__ import annotations
 
@@ -18,6 +22,7 @@ class Phase(str, Enum):
     ARMED = "ARMED"
     LOCKED = "LOCKED"
     REVEALED = "REVEALED"
+    FINAL_JEOPARDY = "FINAL_JEOPARDY"
 
 
 class IllegalTransitionError(Exception):
@@ -31,15 +36,20 @@ class IllegalTransitionError(Exception):
 @dataclass
 class Clue:
     value: int
-    text: str
-    answer: str
     used: bool = False
+    daily_double: bool = False
 
 
 @dataclass
 class Category:
     name: str
     clues: list
+
+
+@dataclass
+class Round:
+    name: str
+    categories: list
 
 
 @dataclass
@@ -53,12 +63,12 @@ class ActiveClue:
     category: int
     row: int
     value: int
-    text: str
-    answer: str
+    daily_double: bool = False
 
 
-def build_categories(data: dict):
-    """Validate already-parsed game content and build (teams, categories).
+def build_content(data: dict):
+    """Validate already-parsed game content and build (teams, rounds,
+    final_jeopardy_category).
 
     Pure: takes a dict in, does no file I/O itself. Raises ValueError with
     a descriptive message on any structural problem so a malformed content
@@ -72,30 +82,42 @@ def build_categories(data: dict):
         raise ValueError("game content must have a 'teams' list of at least 2 names")
     teams = [Team(name=str(n)) for n in teams_raw]
 
-    categories_raw = data.get("categories")
-    if not isinstance(categories_raw, list) or not (5 <= len(categories_raw) <= 6):
-        raise ValueError("game content must have 5 or 6 'categories'")
+    rounds_raw = data.get("rounds")
+    if not isinstance(rounds_raw, list) or not rounds_raw:
+        raise ValueError("game content must have a non-empty 'rounds' list")
 
-    categories = []
-    for ci, cat in enumerate(categories_raw):
-        if not isinstance(cat, dict) or "name" not in cat or "clues" not in cat:
-            raise ValueError(f"category {ci} must have a 'name' and 'clues'")
-        clues_raw = cat["clues"]
-        if not isinstance(clues_raw, list) or len(clues_raw) != 5:
-            raise ValueError(f"category {ci} ('{cat.get('name')}') must have exactly 5 clues")
-        clues = []
-        for ri, clue in enumerate(clues_raw):
-            if not isinstance(clue, dict):
-                raise ValueError(f"category {ci} clue {ri} must be an object")
-            for k in ("value", "clue", "answer"):
-                if k not in clue:
-                    raise ValueError(f"category {ci} clue {ri} missing '{k}'")
-            clues.append(
-                Clue(value=int(clue["value"]), text=str(clue["clue"]), answer=str(clue["answer"]))
-            )
-        categories.append(Category(name=str(cat["name"]), clues=clues))
+    rounds = []
+    for ri, round_data in enumerate(rounds_raw):
+        if not isinstance(round_data, dict) or "name" not in round_data or "categories" not in round_data:
+            raise ValueError(f"round {ri} must have a 'name' and 'categories'")
+        categories_raw = round_data["categories"]
+        if not isinstance(categories_raw, list) or not (5 <= len(categories_raw) <= 6):
+            raise ValueError(f"round {ri} ('{round_data.get('name')}') must have 5 or 6 categories")
+        categories = []
+        for ci, cat in enumerate(categories_raw):
+            if not isinstance(cat, dict) or "name" not in cat or "clues" not in cat:
+                raise ValueError(f"round {ri} category {ci} must have a 'name' and 'clues'")
+            clues_raw = cat["clues"]
+            if not isinstance(clues_raw, list) or len(clues_raw) != 5:
+                raise ValueError(
+                    f"round {ri} category {ci} ('{cat.get('name')}') must have exactly 5 clues"
+                )
+            clues = []
+            for cli, clue in enumerate(clues_raw):
+                if not isinstance(clue, dict) or "value" not in clue:
+                    raise ValueError(f"round {ri} category {ci} clue {cli} missing 'value'")
+                clues.append(
+                    Clue(value=int(clue["value"]), daily_double=bool(clue.get("daily_double", False)))
+                )
+            categories.append(Category(name=str(cat["name"]), clues=clues))
+        rounds.append(Round(name=str(round_data["name"]), categories=categories))
 
-    return teams, categories
+    final_jeopardy_raw = data.get("final_jeopardy")
+    if not isinstance(final_jeopardy_raw, dict) or "category" not in final_jeopardy_raw:
+        raise ValueError("game content must have a 'final_jeopardy' object with a 'category'")
+    final_jeopardy_category = str(final_jeopardy_raw["category"])
+
+    return teams, rounds, final_jeopardy_category
 
 
 class Game:
@@ -106,10 +128,19 @@ class Game:
     happens under `self._lock`.
     """
 
-    def __init__(self, teams, categories, debounce_ms: int = 20, false_start_lockout_ms: int = 250):
+    def __init__(
+        self,
+        teams,
+        rounds,
+        final_jeopardy_category: str,
+        debounce_ms: int = 20,
+        false_start_lockout_ms: int = 250,
+    ):
         self._lock = threading.Lock()
         self._teams = list(teams)
-        self._categories = list(categories)
+        self._rounds = list(rounds)
+        self._round_index = 0
+        self._final_jeopardy_category = final_jeopardy_category
         self._debounce_ns = debounce_ms * 1_000_000
         self._false_start_lockout_ns = false_start_lockout_ms * 1_000_000
 
@@ -117,7 +148,6 @@ class Game:
         self.active_clue: Optional[ActiveClue] = None
         self.winner: Optional[int] = None
         self.winner_tick: Optional[int] = None
-        self.reveal_text: Optional[str] = None
         self.warnings: list = []
 
         self._already_answered: set = set()
@@ -126,6 +156,10 @@ class Game:
         self._last_edge_tick: dict = {}
 
         self.buzz_log: list = []
+
+    @property
+    def _categories(self):
+        return self._rounds[self._round_index].categories
 
     # ---- host actions ----
 
@@ -144,15 +178,22 @@ class Game:
 
             clue.used = True
             self.active_clue = ActiveClue(
-                category=category, row=row, value=clue.value, text=clue.text, answer=clue.answer
+                category=category, row=row, value=clue.value, daily_double=clue.daily_double
             )
             self.winner = None
             self.winner_tick = None
-            self.reveal_text = None
             self._already_answered = set()
             self._false_started = set()
             self._locked_out_until = {}
-            self.phase = Phase.READING
+            if clue.daily_double:
+                # No buzzer race for a Daily Double: the host picks every
+                # tile (not a team), so there's no "team that found it" to
+                # hand it to automatically. Skip straight to REVEALED --
+                # the host picks who attempts it and applies the result
+                # with adjust_score, same as everything else paper-based.
+                self.phase = Phase.REVEALED
+            else:
+                self.phase = Phase.READING
 
     def arm(self, tick_ns: int) -> None:
         with self._lock:
@@ -168,7 +209,6 @@ class Game:
             if self.phase is not Phase.LOCKED:
                 raise IllegalTransitionError(f"cannot mark correct from {self.phase}")
             self._teams[self.winner].score += self.active_clue.value
-            self.reveal_text = self.active_clue.answer
             self.phase = Phase.REVEALED
 
     def mark_incorrect(self, tick_ns: int) -> None:
@@ -182,7 +222,6 @@ class Game:
 
             remaining = [i for i in range(len(self._teams)) if i not in self._already_answered]
             if not remaining:
-                self.reveal_text = self.active_clue.answer
                 self.phase = Phase.REVEALED
             elif len(remaining) == 1:
                 # Exactly one team left with a default two-team game: there's
@@ -200,18 +239,30 @@ class Game:
         with self._lock:
             if self.phase not in (Phase.READING, Phase.ARMED, Phase.LOCKED):
                 raise IllegalTransitionError(f"cannot reveal from {self.phase}")
-            self.reveal_text = self.active_clue.answer
             self.phase = Phase.REVEALED
 
     def return_to_board(self, tick_ns: int) -> None:
         with self._lock:
-            if self.phase is not Phase.REVEALED:
+            if self.phase not in (Phase.REVEALED, Phase.FINAL_JEOPARDY):
                 raise IllegalTransitionError(f"cannot return to board from {self.phase}")
             self.active_clue = None
             self.winner = None
             self.winner_tick = None
-            self.reveal_text = None
             self.phase = Phase.IDLE
+
+    def next_round(self, tick_ns: int) -> None:
+        with self._lock:
+            if self.phase is not Phase.IDLE:
+                raise IllegalTransitionError(f"cannot advance round from {self.phase}")
+            if self._round_index >= len(self._rounds) - 1:
+                raise IllegalTransitionError("no further rounds")
+            self._round_index += 1
+
+    def start_final_jeopardy(self, tick_ns: int) -> None:
+        with self._lock:
+            if self.phase is not Phase.IDLE:
+                raise IllegalTransitionError(f"cannot start final jeopardy from {self.phase}")
+            self.phase = Phase.FINAL_JEOPARDY
 
     def adjust_score(self, team: int, delta: int) -> None:
         with self._lock:
@@ -221,16 +272,17 @@ class Game:
 
     def reset_game(self) -> None:
         with self._lock:
-            for cat in self._categories:
-                for clue in cat.clues:
-                    clue.used = False
+            for round_ in self._rounds:
+                for cat in round_.categories:
+                    for clue in cat.clues:
+                        clue.used = False
             for team in self._teams:
                 team.score = 0
+            self._round_index = 0
             self.phase = Phase.IDLE
             self.active_clue = None
             self.winner = None
             self.winner_tick = None
-            self.reveal_text = None
             self._already_answered = set()
             self._false_started = set()
             self._locked_out_until = {}
@@ -308,7 +360,7 @@ class Game:
                 self.buzz_log.append(entry)
                 return entry
 
-            # IDLE, REVEALED
+            # IDLE, REVEALED, FINAL_JEOPARDY -- no buzzer race in any of these
             entry = {"team": team, "tick": tick_ns, "phase": self.phase.value, "result": "ignored"}
             self.buzz_log.append(entry)
             return entry
@@ -339,15 +391,18 @@ class Game:
                     "category": self.active_clue.category,
                     "row": self.active_clue.row,
                     "value": self.active_clue.value,
-                    "text": self.active_clue.text,
+                    "daily_double": self.active_clue.daily_double,
                 }
 
             return {
                 "phase": self.phase.value,
                 "teams": teams,
                 "board": board,
+                "round_index": self._round_index,
+                "round_name": self._rounds[self._round_index].name,
+                "total_rounds": len(self._rounds),
+                "final_jeopardy_category": self._final_jeopardy_category,
                 "active_clue": active_clue,
                 "winner": self.winner,
-                "reveal": self.reveal_text if self.phase is Phase.REVEALED else None,
                 "warnings": list(self.warnings),
             }

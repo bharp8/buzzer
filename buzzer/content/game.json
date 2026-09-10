@@ -1,186 +1,139 @@
 {
   "title": "Ultimate Trivia Showdown",
   "teams": ["Red", "Blue"],
-  "categories": [
+  "rounds": [
     {
-      "name": "World Capitals",
-      "clues": [
+      "name": "Jeopardy",
+      "categories": [
         {
-          "value": 200,
-          "clue": "This is the capital of France.",
-          "answer": "Paris"
+          "name": "World Capitals",
+          "clues": [
+            {"value": 200},
+            {"value": 400},
+            {"value": 600},
+            {"value": 800, "daily_double": true},
+            {"value": 1000}
+          ]
         },
         {
-          "value": 400,
-          "clue": "This is the capital of Japan.",
-          "answer": "Tokyo"
+          "name": "Shakespeare's Plays",
+          "clues": [
+            {"value": 200},
+            {"value": 400},
+            {"value": 600},
+            {"value": 800},
+            {"value": 1000}
+          ]
         },
         {
-          "value": 600,
-          "clue": "This is the capital of Brazil.",
-          "answer": "Brasília"
+          "name": "Chemical Elements",
+          "clues": [
+            {"value": 200},
+            {"value": 400},
+            {"value": 600},
+            {"value": 800},
+            {"value": 1000}
+          ]
         },
         {
-          "value": 800,
-          "clue": "This is the capital of Australia.",
-          "answer": "Canberra"
+          "name": "Iconic Movie Quotes",
+          "clues": [
+            {"value": 200},
+            {"value": 400},
+            {"value": 600},
+            {"value": 800},
+            {"value": 1000}
+          ]
         },
         {
-          "value": 1000,
-          "clue": "This is the capital of Egypt.",
-          "answer": "Cairo"
+          "name": "Ancient Wonders",
+          "clues": [
+            {"value": 200},
+            {"value": 400},
+            {"value": 600},
+            {"value": 800},
+            {"value": 1000}
+          ]
+        },
+        {
+          "name": "Space Exploration",
+          "clues": [
+            {"value": 200},
+            {"value": 400},
+            {"value": 600},
+            {"value": 800},
+            {"value": 1000}
+          ]
         }
       ]
     },
     {
-      "name": "Shakespeare's Plays",
-      "clues": [
+      "name": "Double Jeopardy",
+      "categories": [
         {
-          "value": 200,
-          "clue": "The Scottish general seeks the throne in this tragedy.",
-          "answer": "Macbeth"
+          "name": "Rivers & Lakes",
+          "clues": [
+            {"value": 400},
+            {"value": 800},
+            {"value": 1200, "daily_double": true},
+            {"value": 1600},
+            {"value": 2000}
+          ]
         },
         {
-          "value": 400,
-          "clue": "In this comedy, two sets of twins cause confusion in Ephesus.",
-          "answer": "The Comedy of Errors"
+          "name": "Classic Novels",
+          "clues": [
+            {"value": 400},
+            {"value": 800},
+            {"value": 1200},
+            {"value": 1600},
+            {"value": 2000}
+          ]
         },
         {
-          "value": 600,
-          "clue": "This tragedy features the Montague and Capulet families.",
-          "answer": "Romeo and Juliet"
+          "name": "Musical Instruments",
+          "clues": [
+            {"value": 400},
+            {"value": 800},
+            {"value": 1200},
+            {"value": 1600},
+            {"value": 2000}
+          ]
         },
         {
-          "value": 800,
-          "clue": "In this play, Prospero uses magic to shipwreck his enemies on an island.",
-          "answer": "The Tempest"
+          "name": "Olympic History",
+          "clues": [
+            {"value": 400},
+            {"value": 800},
+            {"value": 1200},
+            {"value": 1600, "daily_double": true},
+            {"value": 2000}
+          ]
         },
         {
-          "value": 1000,
-          "clue": "This tragedy involves an ancient Egyptian queen and a Roman general.",
-          "answer": "Antony and Cleopatra"
-        }
-      ]
-    },
-    {
-      "name": "Chemical Elements",
-      "clues": [
-        {
-          "value": 200,
-          "clue": "The element with atomic number 1, the lightest element.",
-          "answer": "Hydrogen"
+          "name": "Famous Inventors",
+          "clues": [
+            {"value": 400},
+            {"value": 800},
+            {"value": 1200},
+            {"value": 1600},
+            {"value": 2000}
+          ]
         },
         {
-          "value": 400,
-          "clue": "The element with atomic number 6, the basis of organic life.",
-          "answer": "Carbon"
-        },
-        {
-          "value": 600,
-          "clue": "The element with atomic number 26, used to make steel.",
-          "answer": "Iron"
-        },
-        {
-          "value": 800,
-          "clue": "The element with atomic number 79, a precious metal.",
-          "answer": "Gold"
-        },
-        {
-          "value": 1000,
-          "clue": "The element with atomic number 92, naturally radioactive.",
-          "answer": "Uranium"
-        }
-      ]
-    },
-    {
-      "name": "Iconic Movie Quotes",
-      "clues": [
-        {
-          "value": 200,
-          "clue": "In Star Wars, Yoda says 'Do or do not, there is' this.",
-          "answer": "no try"
-        },
-        {
-          "value": 400,
-          "clue": "In The Wizard of Oz, Dorothy says 'There is no place like'...",
-          "answer": "home"
-        },
-        {
-          "value": 600,
-          "clue": "In Casablanca, Rick says 'Of all the gin joints in all the towns'...",
-          "answer": "she walks into mine"
-        },
-        {
-          "value": 800,
-          "clue": "In The Shining, Jack says 'All work and no play makes Jack a'...",
-          "answer": "dull boy"
-        },
-        {
-          "value": 1000,
-          "clue": "In Forrest Gump, Forrest compares life to 'a box of'...",
-          "answer": "chocolates"
-        }
-      ]
-    },
-    {
-      "name": "Ancient Wonders",
-      "clues": [
-        {
-          "value": 200,
-          "clue": "This is the only surviving ancient wonder of the world.",
-          "answer": "Great Pyramid of Giza"
-        },
-        {
-          "value": 400,
-          "clue": "This massive statue once stood in the harbor of Rhodes.",
-          "answer": "Colossus of Rhodes"
-        },
-        {
-          "value": 600,
-          "clue": "This lighthouse was built on the island of Pharos in Alexandria.",
-          "answer": "Lighthouse of Alexandria"
-        },
-        {
-          "value": 800,
-          "clue": "This mausoleum was built for a Persian satrap in Halicarnassus.",
-          "answer": "Mausoleum at Halicarnassus"
-        },
-        {
-          "value": 1000,
-          "clue": "This wonder featured an ivory and gold statue of Zeus by Phidias.",
-          "answer": "Temple of Zeus at Olympia"
-        }
-      ]
-    },
-    {
-      "name": "Space Exploration",
-      "clues": [
-        {
-          "value": 200,
-          "clue": "This was the first satellite launched by the Soviet Union in 1957.",
-          "answer": "Sputnik 1"
-        },
-        {
-          "value": 400,
-          "clue": "This spacecraft landed humans on the moon in July 1969.",
-          "answer": "Apollo 11"
-        },
-        {
-          "value": 600,
-          "clue": "This probe was the first human-made object to reach interstellar space.",
-          "answer": "Voyager 1"
-        },
-        {
-          "value": 800,
-          "clue": "This rover has been exploring Mars since 2012.",
-          "answer": "Curiosity"
-        },
-        {
-          "value": 1000,
-          "clue": "This space telescope launched in 1990 revolutionized our view of the universe.",
-          "answer": "Hubble Space Telescope"
+          "name": "Mythology",
+          "clues": [
+            {"value": 400},
+            {"value": 800},
+            {"value": 1200},
+            {"value": 1600},
+            {"value": 2000}
+          ]
         }
       ]
     }
-  ]
+  ],
+  "final_jeopardy": {
+    "category": "20th Century History"
+  }
 }

@@ -1,24 +1,30 @@
 """State machine tests. No hardware, no FastAPI -- game.py only."""
 import pytest
 
-from buzzer.game import Category, Clue, Game, IllegalTransitionError, Phase, Team, build_categories
+from buzzer.game import Category, Clue, Game, IllegalTransitionError, Phase, Round, Team, build_content
 
 MS = 1_000_000  # nanoseconds per millisecond
 
 
-def make_game(**kwargs):
-    teams = [Team("Team A"), Team("Team B")]
-    categories = [
-        Category(
-            name=f"Cat {i}",
-            clues=[
-                Clue(value=(r + 1) * 200, text=f"clue {i}-{r}", answer=f"answer {i}-{r}")
-                for r in range(5)
-            ],
-        )
-        for i in range(5)
-    ]
-    return Game(teams, categories, **kwargs)
+def make_round(prefix="Cat", n=5, daily_doubles=()):
+    return Round(
+        name="Jeopardy",
+        categories=[
+            Category(
+                name=f"{prefix} {i}",
+                clues=[
+                    Clue(value=(r + 1) * 200, daily_double=(i, r) in daily_doubles) for r in range(5)
+                ],
+            )
+            for i in range(n)
+        ],
+    )
+
+
+def make_game(teams=None, rounds=None, final_jeopardy_category="Everything", **kwargs):
+    teams = teams or [Team("Red"), Team("Blue")]
+    rounds = rounds or [make_round()]
+    return Game(teams, rounds, final_jeopardy_category, **kwargs)
 
 
 def armed_game(**kwargs):
@@ -161,25 +167,13 @@ def test_all_teams_wrong_reveals():
 
     g.mark_incorrect(tick_ns=30 * MS)
     assert g.phase is Phase.REVEALED
-    assert g.reveal_text is not None
 
 
 def test_mark_incorrect_rearms_when_multiple_teams_still_eligible():
     # With more than two teams, auto-locking only kicks in once exactly one
     # is left -- with two or more still eligible there's no single team to
     # pick, so they have to buzz for it.
-    teams = [Team("Red"), Team("Blue"), Team("Green")]
-    categories = [
-        Category(
-            name=f"Cat {i}",
-            clues=[
-                Clue(value=(r + 1) * 200, text=f"clue {i}-{r}", answer=f"answer {i}-{r}")
-                for r in range(5)
-            ],
-        )
-        for i in range(5)
-    ]
-    g = Game(teams, categories)
+    g = make_game(teams=[Team("Red"), Team("Blue"), Team("Green")])
     g.select_clue(0, 0, tick_ns=0)
     g.arm(tick_ns=1 * MS)
 
@@ -215,23 +209,15 @@ def test_illegal_transitions_rejected_without_mutating_state():
     assert g2.phase is Phase.ARMED
 
 
-def test_snapshot_never_leaks_answer_outside_revealed():
+def test_snapshot_never_contains_clue_or_answer_text():
+    # There is no clue/answer text anywhere in this system -- the host reads
+    # both from paper. Confirm the snapshot genuinely can't leak any.
     g = armed_game()
     snap = g.snapshot(now_tick=5 * MS)
-    assert snap["reveal"] is None
+    assert "reveal" not in snap
+    assert "text" not in snap["active_clue"]
     assert "answer" not in snap["active_clue"]
 
-    g.buzz(0, tick_ns=10 * MS)
-    snap_locked = g.snapshot(now_tick=15 * MS)
-    assert snap_locked["reveal"] is None
-
-    g.mark_correct(tick_ns=20 * MS)
-    snap_revealed = g.snapshot(now_tick=25 * MS)
-    assert snap_revealed["phase"] == "REVEALED"
-    assert snap_revealed["reveal"] is not None
-
-
-# --- a bit of extra coverage for the actions not in the ten required cases ---
 
 def test_mark_correct_awards_points_and_reveals():
     g = armed_game()
@@ -255,7 +241,6 @@ def test_reveal_action_skips_adjudication():
     g = armed_game()
     g.reveal(tick_ns=10 * MS)
     assert g.phase is Phase.REVEALED
-    assert g.reveal_text is not None
 
 
 def test_adjust_score_any_phase():
@@ -264,8 +249,115 @@ def test_adjust_score_any_phase():
     assert g.snapshot(now_tick=0)["teams"][0]["score"] == -100
 
 
-def test_build_categories_rejects_malformed_content():
+def test_build_content_rejects_malformed_content():
     with pytest.raises(ValueError):
-        build_categories({"teams": ["A"], "categories": []})
+        build_content({"teams": ["A"], "rounds": []})  # only 1 team
     with pytest.raises(ValueError):
-        build_categories({"teams": ["A", "B"], "categories": []})
+        build_content({"teams": ["A", "B"], "rounds": []})  # no rounds
+    with pytest.raises(ValueError):
+        # rounds present but no final_jeopardy
+        build_content(
+            {
+                "teams": ["A", "B"],
+                "rounds": [
+                    {
+                        "name": "Jeopardy",
+                        "categories": [
+                            {"name": f"Cat {i}", "clues": [{"value": (r + 1) * 200} for r in range(5)]}
+                            for i in range(5)
+                        ],
+                    }
+                ],
+            }
+        )
+
+
+# ---- Daily Double ----
+
+
+def test_daily_double_skips_buzzer_race_straight_to_revealed():
+    g = make_game(rounds=[make_round(daily_doubles={(0, 0)})])
+    g.select_clue(0, 0, tick_ns=0)
+
+    # No READING/ARMED window at all -- straight to REVEALED.
+    assert g.phase is Phase.REVEALED
+    assert g.active_clue.daily_double is True
+
+    # A real buzz during this window must have no effect whatsoever.
+    g.buzz(0, tick_ns=5 * MS)
+    assert g.phase is Phase.REVEALED
+    assert g.winner is None
+
+    snap = g.snapshot(now_tick=10 * MS)
+    assert snap["active_clue"]["daily_double"] is True
+
+
+def test_daily_double_flag_false_for_normal_clue():
+    g = armed_game()
+    snap = g.snapshot(now_tick=5 * MS)
+    assert snap["active_clue"]["daily_double"] is False
+
+
+# ---- Rounds ----
+
+
+def test_next_round_advances_and_rejects_past_the_last_round():
+    g = make_game(rounds=[make_round(prefix="R1"), make_round(prefix="R2")])
+    assert g.snapshot(now_tick=0)["round_index"] == 0
+
+    g.next_round(tick_ns=0)
+    assert g.snapshot(now_tick=0)["round_index"] == 1
+    assert g._categories[0].name == "R2 0"
+
+    with pytest.raises(IllegalTransitionError):
+        g.next_round(tick_ns=0)  # no further rounds
+
+
+def test_next_round_only_from_idle():
+    g = make_game(rounds=[make_round(prefix="R1"), make_round(prefix="R2")])
+    g.select_clue(0, 0, tick_ns=0)
+    with pytest.raises(IllegalTransitionError):
+        g.next_round(tick_ns=0)
+    assert g.snapshot(now_tick=0)["round_index"] == 0
+
+
+def test_each_round_has_independent_used_state():
+    g = make_game(rounds=[make_round(prefix="R1"), make_round(prefix="R2")])
+    g.select_clue(0, 0, tick_ns=0)
+    g.arm(tick_ns=1 * MS)
+    g.buzz(0, tick_ns=2 * MS)
+    g.mark_correct(tick_ns=3 * MS)
+    g.return_to_board(tick_ns=4 * MS)
+
+    g.next_round(tick_ns=5 * MS)
+    # Round 2's clue at the same coordinates is untouched by round 1 play.
+    assert g._categories[0].clues[0].used is False
+    g.select_clue(0, 0, tick_ns=6 * MS)  # must not raise "already used"
+    assert g.phase is Phase.READING
+
+
+# ---- Final Jeopardy ----
+
+
+def test_final_jeopardy_starts_from_idle_and_blocks_buzzes():
+    g = make_game(final_jeopardy_category="Movies")
+    g.start_final_jeopardy(tick_ns=0)
+    assert g.phase is Phase.FINAL_JEOPARDY
+    assert g.snapshot(now_tick=0)["final_jeopardy_category"] == "Movies"
+
+    g.buzz(0, tick_ns=1 * MS)
+    assert g.phase is Phase.FINAL_JEOPARDY
+    assert g.winner is None
+
+
+def test_final_jeopardy_not_startable_mid_clue():
+    g = armed_game()
+    with pytest.raises(IllegalTransitionError):
+        g.start_final_jeopardy(tick_ns=0)
+
+
+def test_return_to_board_from_final_jeopardy():
+    g = make_game()
+    g.start_final_jeopardy(tick_ns=0)
+    g.return_to_board(tick_ns=1 * MS)
+    assert g.phase is Phase.IDLE

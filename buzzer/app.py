@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import config
-from .game import Game, IllegalTransitionError, build_categories
+from .game import Game, IllegalTransitionError, build_content
 from .inputs.base import BuzzerInput
 from .inputs.mock import MockBackend
 
@@ -85,10 +85,10 @@ def load_content(path: str):
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     try:
-        teams, categories = build_categories(data)
+        teams, rounds, final_jeopardy_category = build_content(data)
     except ValueError as e:
         raise SystemExit(f"invalid game content at {path}: {e}") from e
-    return data.get("title", "Jeopardy"), teams, categories
+    return data.get("title", "Jeopardy"), teams, rounds, final_jeopardy_category
 
 
 def build_backend(num_teams: int) -> BuzzerInput:
@@ -101,11 +101,12 @@ def build_backend(num_teams: int) -> BuzzerInput:
 
 def create_app(content_path: Optional[str] = None, backend: Optional[BuzzerInput] = None) -> FastAPI:
     content_path = content_path or config.GAME_CONTENT_PATH
-    title, teams, categories = load_content(content_path)
+    title, teams, rounds, final_jeopardy_category = load_content(content_path)
 
     game = Game(
         teams,
-        categories,
+        rounds,
+        final_jeopardy_category,
         debounce_ms=config.DEBOUNCE_MS,
         false_start_lockout_ms=config.FALSE_START_LOCKOUT_MS,
     )
@@ -293,6 +294,18 @@ def create_app(content_path: Optional[str] = None, backend: Optional[BuzzerInput
     @app.post("/api/return_to_board")
     async def api_return_to_board():
         _apply(lambda: game.return_to_board(tick_ns=time.monotonic_ns()))
+        await broadcast_state()
+        return game.snapshot(now_tick=time.monotonic_ns())
+
+    @app.post("/api/next_round")
+    async def api_next_round():
+        _apply(lambda: game.next_round(tick_ns=time.monotonic_ns()))
+        await broadcast_state()
+        return game.snapshot(now_tick=time.monotonic_ns())
+
+    @app.post("/api/start_final_jeopardy")
+    async def api_start_final_jeopardy():
+        _apply(lambda: game.start_final_jeopardy(tick_ns=time.monotonic_ns()))
         await broadcast_state()
         return game.snapshot(now_tick=time.monotonic_ns())
 

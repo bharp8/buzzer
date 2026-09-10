@@ -11,21 +11,33 @@ from buzzer.app import create_app
 from buzzer.inputs.mock import MockBackend
 
 
+def _make_round(name, n=5, daily_doubles=()):
+    return {
+        "name": name,
+        "categories": [
+            {
+                "name": f"Cat {i}",
+                "clues": [
+                    {"value": (r + 1) * 200, "daily_double": (i, r) in daily_doubles} for r in range(5)
+                ],
+            }
+            for i in range(n)
+        ],
+    }
+
+
 @pytest.fixture
 def content_path(tmp_path):
     data = {
         "title": "Test Game",
         "teams": ["Team A", "Team B"],
-        "categories": [
-            {
-                "name": f"Cat {i}",
-                "clues": [
-                    {"value": (r + 1) * 200, "clue": f"clue {i}-{r}", "answer": f"answer {i}-{r}"}
-                    for r in range(5)
-                ],
-            }
-            for i in range(5)
+        "rounds": [
+            # Keep the Daily Double off (0, 0) -- lots of tests select that
+            # exact tile expecting the normal READING/ARMED flow.
+            _make_round("Jeopardy", daily_doubles={(4, 4)}),
+            _make_round("Double Jeopardy"),
         ],
+        "final_jeopardy": {"category": "Everything"},
     }
     path = tmp_path / "game.json"
     path.write_text(json.dumps(data))
@@ -57,7 +69,11 @@ def test_websocket_gets_full_snapshot_on_connect(content_path):
             assert snap["phase"] == "IDLE"
             assert len(snap["teams"]) == 2
             assert len(snap["board"]) == 5
-            assert snap["reveal"] is None
+            assert "reveal" not in snap
+            assert snap["round_index"] == 0
+            assert snap["round_name"] == "Jeopardy"
+            assert snap["total_rounds"] == 2
+            assert snap["final_jeopardy_category"] == "Everything"
 
 
 def test_new_connection_gets_current_state_not_blank(content_path):
@@ -191,10 +207,62 @@ def test_startup_self_test_surfaces_warning_for_stuck_team(content_path):
             assert any("Team B" in w for w in snap["warnings"])
 
 
-def test_snapshot_never_includes_answer_before_reveal(content_path):
+def test_snapshot_never_contains_clue_or_answer_text(content_path):
     with make_client(content_path, backend=MockBackend(num_teams=2)) as client:
         with client.websocket_connect("/ws") as ws:
             ws.receive_json()
             client.post("/api/select_clue", json={"category": 0, "row": 0})
             snap = ws.receive_json()
-            assert "answer" not in json.dumps(snap["active_clue"])
+            assert "text" not in snap["active_clue"]
+            assert "answer" not in snap["active_clue"]
+
+
+def test_next_round_endpoint(content_path):
+    with make_client(content_path) as client:
+        r = client.post("/api/next_round")
+        assert r.status_code == 200
+        assert r.json()["round_index"] == 1
+        assert r.json()["round_name"] == "Double Jeopardy"
+
+        r = client.post("/api/next_round")  # no further rounds
+        assert r.status_code == 409
+
+
+def test_start_final_jeopardy_endpoint(content_path):
+    with make_client(content_path) as client:
+        r = client.post("/api/start_final_jeopardy")
+        assert r.status_code == 200
+        assert r.json()["phase"] == "FINAL_JEOPARDY"
+        assert r.json()["final_jeopardy_category"] == "Everything"
+
+        # Illegal from IDLE only via the phase check -- can't start twice in a row.
+        r = client.post("/api/start_final_jeopardy")
+        assert r.status_code == 409
+
+        r = client.post("/api/return_to_board")
+        assert r.status_code == 200
+        assert r.json()["phase"] == "IDLE"
+
+
+def test_daily_double_tile_skips_arm_and_buzzing(content_path):
+    with make_client(content_path, backend=MockBackend(num_teams=2)) as client:
+        with client.websocket_connect("/ws") as ws:
+            ws.receive_json()
+
+            r = client.post("/api/select_clue", json={"category": 4, "row": 4})
+            assert r.status_code == 200
+            d = r.json()
+            assert d["phase"] == "REVEALED"
+            assert d["active_clue"]["daily_double"] is True
+            ws.receive_json()
+
+            # Arming makes no sense here -- there was never a READING phase.
+            r = client.post("/api/arm")
+            assert r.status_code == 409
+
+            # A real buzz during this window has no effect.
+            r = client.post("/dev/buzz/0")
+            assert r.status_code == 200
+            snap = ws.receive_json()
+            assert snap["winner"] is None
+            assert snap["phase"] == "REVEALED"
