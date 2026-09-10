@@ -1,0 +1,230 @@
+:root {
+  --bg: #07080c;
+  --bg-panel: #14161f;
+  --line: #2a2e3d;
+  --text: #f4f5f9;
+  --text-dim: #8991a8;
+  --gold: #ffc233;
+  --good: #35c46b;
+  --bad: #ff5757;
+  --warn: #ff9d2e;
+
+  --team-a: #1c6dff;
+  --team-b: #ff3b3b;
+
+  --display-font: "Arial Black", "Helvetica Neue", Arial, "Segoe UI", system-ui, sans-serif;
+  --body-font: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body-font);
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 16px 40px;
+  gap: 20px;
+}
+
+h1 {
+  font-family: var(--display-font);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: clamp(1.3rem, 4vw, 2rem);
+  margin: 0;
+  text-align: center;
+}
+
+#conn-dot {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+#conn-dot .dot {
+  width: 0.65em;
+  height: 0.65em;
+  border-radius: 50%;
+  background: var(--good);
+}
+
+#conn-dot.offline {
+  color: var(--bad);
+}
+
+#conn-dot.offline .dot {
+  background: var(--bad);
+}
+
+#prompt {
+  width: min(600px, 92vw);
+  background: var(--bg-panel);
+  border: 3px solid var(--line);
+  border-radius: 16px;
+  padding: 32px 20px;
+  text-align: center;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+#prompt.waiting-a {
+  border-color: var(--team-a);
+}
+#prompt.waiting-b {
+  border-color: var(--team-b);
+}
+#prompt.got-it {
+  border-color: var(--good);
+  background: #0f2318;
+}
+#prompt.all-done {
+  border-color: var(--gold);
+  background: #241d0a;
+}
+
+#prompt-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+}
+
+#prompt-team {
+  font-family: var(--display-font);
+  font-weight: 900;
+  font-size: clamp(1.6rem, 6vw, 3rem);
+  text-transform: uppercase;
+}
+
+#prompt.waiting-a #prompt-team {
+  color: var(--team-a);
+}
+#prompt.waiting-b #prompt-team {
+  color: var(--team-b);
+}
+#prompt.got-it #prompt-team {
+  color: var(--good);
+}
+#prompt.all-done #prompt-team {
+  color: var(--gold);
+}
+
+#prompt-detail {
+  margin-top: 8px;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+#restart-btn {
+  margin-top: 18px;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-weight: 700;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+
+#restart-btn[hidden] {
+  display: none;
+}
+
+#checklist {
+  width: min(600px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+}
+
+.check-row .mark {
+  width: 1.4em;
+  height: 1.4em;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8em;
+  font-weight: 900;
+}
+
+.check-row.done .mark {
+  background: var(--good);
+  border-color: var(--good);
+  color: #06210f;
+}
+
+.check-row.current .mark {
+  border-color: var(--gold);
+}
+
+#log-section {
+  width: min(600px, 92vw);
+}
+
+#log-section h2 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin: 0 0 8px;
+}
+
+#log {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  font-size: 0.75rem;
+}
+
+.log-row {
+  background: var(--bg-panel);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--text-dim);
+  border-left: 3px solid var(--line);
+}
+
+.log-row.team-a {
+  border-left-color: var(--team-a);
+}
+.log-row.team-b {
+  border-left-color: var(--team-b);
+}
+
+.log-row .result {
+  color: var(--text);
+  font-weight: 700;
+}

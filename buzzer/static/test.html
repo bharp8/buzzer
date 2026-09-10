@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Buzzer Test Mode</title>
+  <link rel="stylesheet" href="/static/test.css" />
+</head>
+<body>
+  <h1>Button Test Mode</h1>
+  <div id="conn-dot"><span class="dot"></span><span class="label">connecting…</span></div>
+
+  <div id="prompt">
+    <div id="prompt-label">Press this team's button</div>
+    <div id="prompt-team">—</div>
+    <div id="prompt-detail"></div>
+    <button id="restart-btn" hidden>Test again</button>
+  </div>
+
+  <div id="checklist"></div>
+
+  <div id="log-section">
+    <h2>Raw event log</h2>
+    <div id="log"></div>
+  </div>
+
+  <script src="/static/test.js"></script>
+</body>
+</html>

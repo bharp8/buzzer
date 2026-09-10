@@ -110,6 +110,7 @@ def create_app(content_path: Optional[str] = None, backend: Optional[BuzzerInput
         false_start_lockout_ms=config.FALSE_START_LOCKOUT_MS,
     )
     manager = ConnectionManager()
+    test_manager = ConnectionManager()
     backend = backend or build_backend(len(teams))
     is_mock = isinstance(backend, MockBackend)
 
@@ -119,13 +120,31 @@ def create_app(content_path: Optional[str] = None, backend: Optional[BuzzerInput
         snapshot = game.snapshot(now_tick=time.monotonic_ns())
         await manager.broadcast(json.dumps(snapshot))
 
-    def log_last_buzz(source: str) -> None:
+    async def broadcast_test_event(entry: dict, source: str) -> None:
+        # Test mode (static/test.html) cares about raw edges reaching each
+        # pin, independent of game phase -- it needs to see a press even
+        # while IDLE, where the main game would just ignore it. `entry` must
+        # be the exact dict Game.buzz() returned for this call, captured
+        # synchronously under its lock -- never re-read buzz_log[-1] here,
+        # since concurrent GPIO callbacks on other pins can append a newer
+        # entry before this coroutine actually runs.
+        await test_manager.broadcast(
+            json.dumps(
+                {
+                    "type": "buzz",
+                    "source": source,
+                    "team": entry["team"],
+                    "tick": entry["tick"],
+                    "result": entry["result"],
+                    "phase": entry["phase"],
+                }
+            )
+        )
+
+    def log_buzz(entry: dict, source: str) -> None:
         # Every accepted or rejected edge gets logged, regardless of which
         # input path produced it -- this is the only record when someone
         # disputes a call (spec 9).
-        if not game.buzz_log:
-            return
-        entry = game.buzz_log[-1]
         logger.info(
             "buzz source=%s team=%s tick=%s result=%s phase=%s",
             source,
@@ -135,15 +154,22 @@ def create_app(content_path: Optional[str] = None, backend: Optional[BuzzerInput
             entry["phase"],
         )
 
+    async def broadcast_all(entry: dict, source: str) -> None:
+        await broadcast_state()
+        await broadcast_test_event(entry, source)
+
     def on_buzz(team: int, tick_ns: int) -> None:
         # Called from the GPIO callback thread (or synchronously from the
         # mock's /dev/buzz route, which runs on the event loop thread --
         # run_coroutine_threadsafe works correctly from either).
-        game.buzz(team, tick_ns)
-        log_last_buzz("mock" if is_mock else "gpio")
+        entry = game.buzz(team, tick_ns)
+        if entry is None:
+            return  # debounced or invalid team -- nothing to log/broadcast
+        source = "mock" if is_mock else "gpio"
+        log_buzz(entry, source)
         loop = loop_holder["loop"]
         if loop is not None:
-            asyncio.run_coroutine_threadsafe(broadcast_state(), loop)
+            asyncio.run_coroutine_threadsafe(broadcast_all(entry, source), loop)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -178,6 +204,10 @@ def create_app(content_path: Optional[str] = None, backend: Optional[BuzzerInput
     async def host_page():
         return FileResponse(STATIC_DIR / "host.html")
 
+    @app.get("/test")
+    async def test_page():
+        return FileResponse(STATIC_DIR / "test.html")
+
     @app.get("/buzz/{team}")
     async def phone_buzz_page(team: int):
         # Per-team fallback buzzer, for when the physical buttons aren't
@@ -200,6 +230,22 @@ def create_app(content_path: Optional[str] = None, backend: Optional[BuzzerInput
             pass
         finally:
             await manager.disconnect(websocket)
+
+    @app.websocket("/ws/test")
+    async def ws_test_endpoint(websocket: WebSocket):
+        # Raw buzz-event feed for /test, independent of game phase -- see
+        # broadcast_test_event. Unrelated to the main /ws snapshot contract.
+        await test_manager.connect(websocket)
+        await websocket.send_text(
+            json.dumps({"type": "hello", "teams": [t.name for t in teams]})
+        )
+        try:
+            while True:
+                await websocket.receive_text()
+        except WebSocketDisconnect:
+            pass
+        finally:
+            await test_manager.disconnect(websocket)
 
     def _apply(action_fn) -> None:
         try:
@@ -261,8 +307,10 @@ def create_app(content_path: Optional[str] = None, backend: Optional[BuzzerInput
         # register a buzz for that team by hand (spec 5, keyboard 1/2). Also
         # used by the /buzz/{team} phone fallback page (source=phone), which
         # passes no kernel edge, just this server-side receipt timestamp.
-        game.buzz(team, tick_ns=time.monotonic_ns())
-        log_last_buzz(source)
+        entry = game.buzz(team, tick_ns=time.monotonic_ns())
+        if entry is not None:
+            log_buzz(entry, source)
+            await broadcast_test_event(entry, source)
         await broadcast_state()
         return game.snapshot(now_tick=time.monotonic_ns())
 

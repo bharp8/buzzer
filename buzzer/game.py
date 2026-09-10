@@ -235,44 +235,53 @@ class Game:
     # manual-override endpoint (button failure fallback). Latch the winner
     # under the lock before doing anything else -- see spec 2.3.
 
-    def buzz(self, team: int, tick_ns: int) -> None:
+    def buzz(self, team: int, tick_ns: int):
+        """Returns the log entry this edge produced, or None if it was
+        filtered entirely (out-of-range team, or debounced). Callers that
+        need to know exactly what this specific call did (logging,
+        broadcasting to /ws/test) must use this return value rather than
+        re-reading buzz_log[-1] afterwards -- another thread's edge can be
+        appended in between, on the real GPIO path where multiple pins'
+        callbacks run concurrently.
+        """
         with self._lock:
             if not (0 <= team < len(self._teams)):
-                return
+                return None
 
             # Per-pin debounce: only ever filters a *repeat* edge on the same
             # pin. It never delays the first edge, so it can't add latency
             # ahead of the winner comparison below.
             last = self._last_edge_tick.get(team)
             if last is not None and tick_ns - last < self._debounce_ns:
-                return
+                return None
             self._last_edge_tick[team] = tick_ns
 
             if self.phase is Phase.READING:
                 self._false_started.add(team)
-                self.buzz_log.append(
-                    {"team": team, "tick": tick_ns, "phase": self.phase.value, "result": "false_start"}
-                )
-                return
+                entry = {"team": team, "tick": tick_ns, "phase": self.phase.value, "result": "false_start"}
+                self.buzz_log.append(entry)
+                return entry
 
             if self.phase is Phase.ARMED:
                 if self._locked_out_until.get(team, 0) > tick_ns:
-                    self.buzz_log.append(
-                        {"team": team, "tick": tick_ns, "phase": self.phase.value, "result": "locked_out"}
-                    )
-                    return
+                    entry = {"team": team, "tick": tick_ns, "phase": self.phase.value, "result": "locked_out"}
+                    self.buzz_log.append(entry)
+                    return entry
                 if team in self._already_answered:
-                    self.buzz_log.append(
-                        {"team": team, "tick": tick_ns, "phase": self.phase.value, "result": "already_answered"}
-                    )
-                    return
+                    entry = {
+                        "team": team,
+                        "tick": tick_ns,
+                        "phase": self.phase.value,
+                        "result": "already_answered",
+                    }
+                    self.buzz_log.append(entry)
+                    return entry
                 self.phase = Phase.LOCKED
                 self.winner = team
                 self.winner_tick = tick_ns
-                self.buzz_log.append(
-                    {"team": team, "tick": tick_ns, "phase": Phase.LOCKED.value, "result": "latched"}
-                )
-                return
+                entry = {"team": team, "tick": tick_ns, "phase": Phase.LOCKED.value, "result": "latched"}
+                self.buzz_log.append(entry)
+                return entry
 
             if self.phase is Phase.LOCKED:
                 # A different team's edge that actually happened earlier
@@ -282,19 +291,16 @@ class Game:
                 if team != self.winner and self.winner_tick is not None and tick_ns < self.winner_tick:
                     self.winner = team
                     self.winner_tick = tick_ns
-                    self.buzz_log.append(
-                        {"team": team, "tick": tick_ns, "phase": self.phase.value, "result": "correction"}
-                    )
+                    entry = {"team": team, "tick": tick_ns, "phase": self.phase.value, "result": "correction"}
                 else:
-                    self.buzz_log.append(
-                        {"team": team, "tick": tick_ns, "phase": self.phase.value, "result": "ignored"}
-                    )
-                return
+                    entry = {"team": team, "tick": tick_ns, "phase": self.phase.value, "result": "ignored"}
+                self.buzz_log.append(entry)
+                return entry
 
             # IDLE, REVEALED
-            self.buzz_log.append(
-                {"team": team, "tick": tick_ns, "phase": self.phase.value, "result": "ignored"}
-            )
+            entry = {"team": team, "tick": tick_ns, "phase": self.phase.value, "result": "ignored"}
+            self.buzz_log.append(entry)
+            return entry
 
     # ---- snapshot ----
 

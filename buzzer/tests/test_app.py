@@ -139,6 +139,44 @@ def test_manual_buzz_default_source_is_host(content_path, caplog):
         assert any("source=host" in rec.message for rec in caplog.records)
 
 
+def test_test_page_serves(content_path):
+    with make_client(content_path) as client:
+        assert client.get("/test").status_code == 200
+
+
+def test_ws_test_sends_hello_with_team_names(content_path):
+    with make_client(content_path) as client:
+        with client.websocket_connect("/ws/test") as ws:
+            hello = ws.receive_json()
+            assert hello["type"] == "hello"
+            assert hello["teams"] == ["Team A", "Team B"]
+
+
+def test_ws_test_relays_buzz_even_while_idle(content_path):
+    # Test mode must see a raw edge even in IDLE, where the main game
+    # would just ignore it -- that's the whole point of the feature.
+    with make_client(content_path, backend=MockBackend(num_teams=2)) as client:
+        with client.websocket_connect("/ws/test") as ws:
+            ws.receive_json()  # hello
+            client.post("/dev/buzz/0")
+            event = ws.receive_json()
+            assert event["type"] == "buzz"
+            assert event["team"] == 0
+            assert event["result"] == "ignored"
+            assert event["phase"] == "IDLE"
+            assert event["source"] == "mock"
+
+
+def test_ws_test_relays_manual_buzz_with_source(content_path):
+    with make_client(content_path) as client:
+        with client.websocket_connect("/ws/test") as ws:
+            ws.receive_json()  # hello
+            client.post("/api/manual_buzz/1?source=phone")
+            event = ws.receive_json()
+            assert event["team"] == 1
+            assert event["source"] == "phone"
+
+
 def test_startup_self_test_surfaces_warning_for_stuck_team(content_path):
     backend = MockBackend(num_teams=2)
     backend.set_stuck(1, True)
