@@ -144,6 +144,11 @@ def test_test_page_serves(content_path):
         assert client.get("/test").status_code == 200
 
 
+def test_dual_page_serves(content_path):
+    with make_client(content_path) as client:
+        assert client.get("/dual").status_code == 200
+
+
 def test_ws_test_sends_hello_with_team_names(content_path):
     with make_client(content_path) as client:
         with client.websocket_connect("/ws/test") as ws:

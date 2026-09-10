@@ -208,6 +208,13 @@ def create_app(content_path: Optional[str] = None, backend: Optional[BuzzerInput
     async def test_page():
         return FileResponse(STATIC_DIR / "test.html")
 
+    @app.get("/dual")
+    async def dual_page():
+        # Board and host side by side in one tab (two iframes), for running
+        # everything off a single device instead of a separate display and
+        # host device.
+        return FileResponse(STATIC_DIR / "dual.html")
+
     @app.get("/buzz/{team}")
     async def phone_buzz_page(team: int):
         # Per-team fallback buzzer, for when the physical buttons aren't

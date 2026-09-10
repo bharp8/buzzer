@@ -6,7 +6,19 @@ The Pi itself runs headless — no monitor attached, no clue/answer text
 displayed anywhere (the host reads those from paper). `/board` and `/host`
 are just pages any browser on the Pi's network can load: point a laptop at
 `/board` for the shared display, and a phone (or that same laptop, in
-another tab) at `/host` for the host controls.
+another tab) at `/host` for the host controls. Running everything off a
+single device instead? See `/dual` below.
+
+## Running board + host on one device
+
+`/dual` shows both `/board` and `/host` side by side in a single browser
+tab (each in its own `<iframe>` — neither page changes, both still work
+fine loaded standalone too). Host controls on the left, board on the
+right; stacks vertically instead on narrow/short windows. Keyboard
+shortcuts work no matter which pane has focus — `/dual` has its own
+top-level listener for exactly that, since a browser only ever routes
+keypresses to whichever iframe (or the outer page) currently has focus,
+and the board pane has no shortcut handler of its own.
 
 ## Laptop Development Setup
 
