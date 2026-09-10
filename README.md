@@ -61,6 +61,28 @@ sudo systemctl enable --now buzzer
 journalctl -u buzzer -f  # tail logs
 ```
 
+The unit file has placeholder paths/user (`pi`, `/home/pi/buzzer`) — edit it
+to match the actual account and clone location before installing.
+
+### Wi-Fi access point
+
+At the venue there's no internet, so the Pi broadcasts its own network via
+NetworkManager (no hostapd/dnsmasq needed):
+
+```bash
+nmcli connection add type wifi ifname wlan0 con-name buzzer-ap autoconnect yes ssid Buzzer \
+  802-11-wireless.mode ap 802-11-wireless.band bg \
+  wifi-sec.key-mgmt wpa-psk wifi-sec.psk buzzerbuzzer \
+  ipv4.method shared ipv6.method disabled
+```
+
+Default SSID `Buzzer`, password `buzzerbuzzer`, serving `10.42.0.1`. Change
+either with `nmcli connection modify buzzer-ap 802-11-wireless.ssid <name> wifi-sec.psk <pass>`
+then `nmcli connection up buzzer-ap`. If Wi-Fi doesn't come up, check
+`nmcli radio wifi` is `enabled` and the regulatory domain
+(`sudo raspi-config nonint do_wifi_country <CC>`) matches where you actually
+are — both bit us once; see `PI_TODO.md` item 6 for details.
+
 **Important:** Before deploying, check `PI_TODO.md` for the detailed hardware bring-up and verification checklist.
 
 ## GPIO Wiring (Raspberry Pi 4, Bookworm)
@@ -118,3 +140,14 @@ Under the hood it's the same manual-override endpoint the host's own
 `1`/`2` keys use (`POST /api/manual_buzz/{team}`), just called from a
 page the players hold instead of the host. Every buzz is still logged with
 its source (`host`, `phone`, `gpio`, or `mock`) for dispute resolution.
+
+## Hardware test mode
+
+`/test` (linked from `/host`) prompts for each team's button in turn, shows a
+green check once the right pin fires, then loops continuously. It's
+independent of game phase — it sees a press even while `IDLE`, where the
+main game would just ignore it — so it works before any clue has ever been
+selected. A raw event log underneath shows every edge as it happens
+(including presses on the *wrong* team's button, useful for catching
+cross-wired GPIO pins) and is the fastest way to visually confirm debounce
+is filtering contact bounce down to one event per press.

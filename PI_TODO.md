@@ -109,10 +109,14 @@ BUZZER_BACKEND=gpio ./run.sh
       with pull-ups actually wired that *no* warning shows at rest, and that
       holding one button down at startup still names the right team.
 - [ ] Single press, each team independently, latches correctly and shows on
-      `/board` from across the room.
+      `/board` from across the room. Use `/test` (linked from `/host` under
+      "Hardware bring-up") to verify each button fires the correct pin
+      before ever playing a real round -- it prompts for each team in turn
+      and shows a live raw event log, independent of game phase.
 - [ ] **Debounce**: tap a button rapidly/lightly to try to induce contact
       bounce. Confirm it registers as exactly one buzz, not several rejected-
-      then-accepted flickers in the log.
+      then-accepted flickers in the log. `/test`'s raw log is the easiest way
+      to watch for this directly.
 - [ ] **Simultaneous press**: have two people press both buttons as close to
       the same instant as they can manage, repeatedly, and confirm the winner
       is consistent with a stopwatch/slow-motion video, not just "whichever
@@ -130,7 +134,7 @@ BUZZER_BACKEND=gpio ./run.sh
       correct answer, a fully-answered-wrong clue) with real people racing
       real buttons, not curl.
 
-## 5. systemd
+## 5. systemd — ✅ done 2026-09-10
 
 ```bash
 sudo cp deploy/buzzer.service /etc/systemd/system/buzzer.service
@@ -138,20 +142,56 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now buzzer.service
 ```
 
-- [ ] Confirm the unit's `WorkingDirectory`/`ExecStart` paths actually match
-      wherever this repo lives on the Pi (adjust `deploy/buzzer.service` if
-      cloned somewhere other than `/home/pi/buzzer`).
-- [ ] Reboot the Pi and confirm the service comes up on its own and `/board`
-      is reachable without manually running anything.
-- [ ] `sudo systemctl kill -s SIGKILL buzzer.service` mid-game and confirm it
-      restarts automatically (Restart=on-failure) and the board/host
-      reconnect on their own once it's back.
+Installed with `User=bmh` and paths pointed at `/home/bmh/buzzer` (the
+placeholder `pi`/`/home/pi/buzzer` in the committed unit file is generic —
+this Pi's actual account is `bmh`, adjust again if the account ever changes).
 
-## 6. Network
+- [x] Confirmed the unit's `WorkingDirectory`/`ExecStart` match the real
+      install path and account on this Pi.
+- [x] Rebooted and confirmed the service comes up on its own, `/board`
+      reachable within ~20s, no manual steps.
+- [x] `systemctl kill -s SIGKILL` mid-run → confirmed it restarts
+      automatically (Restart=on-failure) with a new PID.
 
-- [ ] Confirm the Pi's Wi-Fi AP (`10.42.0.1`) or ethernet setup actually
-      serves `0.0.0.0:8000` to devices on that network — this repo doesn't
-      configure the AP itself, only binds the server to `0.0.0.0`.
+## 6. Network — Wi-Fi AP ✅ done 2026-09-10, phone fallback still untested
+
+Set up via NetworkManager (no hostapd/dnsmasq needed — NM handles both):
+
+```bash
+nmcli connection add type wifi ifname wlan0 con-name buzzer-ap autoconnect yes ssid Buzzer \
+  802-11-wireless.mode ap 802-11-wireless.band bg \
+  wifi-sec.key-mgmt wpa-psk wifi-sec.psk buzzerbuzzer \
+  ipv4.method shared ipv6.method disabled
+```
+
+SSID `Buzzer`, password `buzzerbuzzer` — change both if you want something
+else (`nmcli connection modify buzzer-ap 802-11-wireless.ssid ... wifi-sec.psk ...`
+then `nmcli connection up buzzer-ap`). Gives `10.42.0.1` on `wlan0`, matching
+the spec, via NetworkManager's own DHCP server for that connection.
+
+Two gotchas hit while setting this up, in case they recur (e.g. after a
+Raspberry Pi OS update resets NetworkManager state):
+
+1. **Wi-Fi radio was administratively off by default** (`nmcli radio wifi`
+   showed `disabled` even though the hardware/firmware were fine and `WIFI-HW`
+   showed `enabled`). Fixed with `nmcli radio wifi on` — confirmed this
+   persists across reboots on its own now.
+2. **Regulatory domain was hardcoded to GB** in `/boot/firmware/cmdline.txt`
+   (`cfg80211.ieee80211_regdom=GB`), presumably an image default, not
+   anything set here. Fixed for a US venue with
+   `sudo raspi-config nonint do_wifi_country US` (this edits `cmdline.txt`
+   directly, so it's persistent). If this Pi ever travels to a different
+   country, redo this or Wi-Fi channels/power may be wrong for the local
+   regulatory environment.
+
+If you ever also want the ethernet port sharing a laptop's internet for
+setup (like this session did), do **not** let it default to the same
+`10.42.0.0/24` NetworkManager uses for `shared` mode by default — that
+collides with the AP's own subnet on the Pi itself once both are up
+simultaneously (discovered the hard way: the Pi's `eth0` and `wlan0` both
+tried to claim `10.42.0.1/24` at once, and connectivity broke until one side
+was moved with `ipv4.addresses` to a different subnet).
+
 - [ ] Load `/board` on the actual TV/laptop and `/host` on the actual
       phone/laptop that will be used, at the actual distances described in
       the spec (55" TV across a room, phone in hand) — the `vw`/`clamp()`
