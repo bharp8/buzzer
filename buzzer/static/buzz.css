@@ -109,7 +109,7 @@ body.team-b #team-name {
   font-size: clamp(1.6rem, 11vw, 3.2rem);
   letter-spacing: 0.04em;
   color: var(--text-dim);
-  background: #0a0ecb;
+  background: #070a98;
   transition: transform 0.08s ease, background-color 0.15s ease, color 0.15s ease;
   box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.04);
 }

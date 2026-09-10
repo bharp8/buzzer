@@ -2,10 +2,10 @@
   /* Same "Jeopardy Blue" approximation as board.css -- see the comment
      there for sourcing. */
   --bg: #000233;
-  --bg-panel: #0a0ecb;
-  --bg-cell: #1016e0;
-  --line: #2530a8;
-  --gold: #ffc233;
+  --bg-panel: #070a98;
+  --bg-cell: #0c10a8;
+  --line: #1c2480;
+  --gold: #e0a82e;
   --text: #f4f5f9;
   --text-dim: #9098d8;
   --warn: #ff9d2e;

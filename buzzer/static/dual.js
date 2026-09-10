@@ -153,6 +153,23 @@
       score.textContent = formatScore(team.score);
       card.appendChild(score);
 
+      // The only way to resolve a Daily Double or Final Jeopardy wager --
+      // neither of those touches score automatically, by design (see
+      // README "Daily Double & Final Jeopardy"), so this needs to be
+      // reachable from here since /dual has no board-select grid host
+      // pane to fall back to.
+      const adjustBtn = document.createElement("button");
+      adjustBtn.className = "pill-btn";
+      adjustBtn.textContent = "Adjust";
+      adjustBtn.addEventListener("click", () => {
+        const raw = window.prompt(`Adjust ${team.name} score by (e.g. -100 or 200):`);
+        if (raw === null || raw.trim() === "") return;
+        const delta = parseInt(raw, 10);
+        if (Number.isNaN(delta)) return;
+        post("/api/adjust_score", { team: idx, delta });
+      });
+      card.appendChild(adjustBtn);
+
       teamsEl.appendChild(card);
     });
   }
