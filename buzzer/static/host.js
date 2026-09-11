@@ -11,7 +11,6 @@
   const roundLabelEl = document.getElementById("round-label");
 
   const btnArm = document.getElementById("btn-arm");
-  const btnReveal = document.getElementById("btn-reveal");
   const btnCorrect = document.getElementById("btn-correct");
   const btnIncorrect = document.getElementById("btn-incorrect");
   const btnBack = document.getElementById("btn-back");
@@ -231,10 +230,13 @@
   function renderActions(state) {
     const phase = state.phase;
     btnArm.disabled = phase !== "READING";
-    btnReveal.disabled = !(phase === "READING" || phase === "ARMED" || phase === "LOCKED");
     btnCorrect.disabled = phase !== "LOCKED";
     btnIncorrect.disabled = phase !== "LOCKED";
-    btnBack.disabled = !(phase === "REVEALED" || phase === "FINAL_JEOPARDY");
+    // Back to board is the universal "done with this clue" action now --
+    // valid any time a clue is in progress, not just after adjudicating.
+    // Bailing out of READING/ARMED/LOCKED directly means nobody buzzed (or
+    // the host is abandoning it for any other reason): no score change.
+    btnBack.disabled = phase === "IDLE";
   }
 
   function renderRoundBar(state) {
@@ -289,7 +291,6 @@
   }
 
   btnArm.addEventListener("click", () => post("/api/arm"));
-  btnReveal.addEventListener("click", () => post("/api/reveal"));
   btnCorrect.addEventListener("click", () => post("/api/mark_correct"));
   btnIncorrect.addEventListener("click", () => post("/api/mark_incorrect"));
   btnBack.addEventListener("click", () => post("/api/return_to_board"));
@@ -321,10 +322,6 @@
       case "n":
       case "N":
         if (!btnIncorrect.disabled) post("/api/mark_incorrect");
-        break;
-      case "r":
-      case "R":
-        if (!btnReveal.disabled) post("/api/reveal");
         break;
       case "Escape":
         if (!btnBack.disabled) post("/api/return_to_board");

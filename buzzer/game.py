@@ -235,15 +235,21 @@ class Game:
                 # no single team to auto-select, so they compete for it.
                 self.phase = Phase.ARMED
 
-    def reveal(self, tick_ns: int) -> None:
-        with self._lock:
-            if self.phase not in (Phase.READING, Phase.ARMED, Phase.LOCKED):
-                raise IllegalTransitionError(f"cannot reveal from {self.phase}")
-            self.phase = Phase.REVEALED
-
     def return_to_board(self, tick_ns: int) -> None:
+        # The universal "done with this clue" action. Valid from any
+        # in-progress phase, not just after mark_correct/mark_incorrect:
+        # the host can bail out of READING/ARMED/LOCKED directly (nobody
+        # buzzed, wrong clue selected, whatever) with no score change at
+        # all -- same as it always did from REVEALED/FINAL_JEOPARDY, just
+        # without requiring a separate "reveal" step first.
         with self._lock:
-            if self.phase not in (Phase.REVEALED, Phase.FINAL_JEOPARDY):
+            if self.phase not in (
+                Phase.READING,
+                Phase.ARMED,
+                Phase.LOCKED,
+                Phase.REVEALED,
+                Phase.FINAL_JEOPARDY,
+            ):
                 raise IllegalTransitionError(f"cannot return to board from {self.phase}")
             self.active_clue = None
             self.winner = None

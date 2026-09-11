@@ -237,10 +237,30 @@ def test_return_to_board_resets_to_idle():
     assert g.active_clue is None
 
 
-def test_reveal_action_skips_adjudication():
-    g = armed_game()
-    g.reveal(tick_ns=10 * MS)
-    assert g.phase is Phase.REVEALED
+def test_return_to_board_abandons_a_clue_with_no_scoring():
+    # The universal "done with this clue" action: works directly from
+    # READING/ARMED/LOCKED, not just after adjudicating, with no score
+    # change either way -- nobody buzzed (or the host is bailing for any
+    # other reason), so nothing happened.
+    for setup in (
+        lambda g: None,  # READING: right after select_clue, nothing else
+        lambda g: g.arm(tick_ns=1 * MS),  # ARMED
+        lambda g: (g.arm(tick_ns=1 * MS), g.buzz(0, tick_ns=2 * MS)),  # LOCKED
+    ):
+        g = make_game()
+        g.select_clue(0, 0, tick_ns=0)
+        setup(g)
+        g.return_to_board(tick_ns=100 * MS)
+        assert g.phase is Phase.IDLE
+        assert g.active_clue is None
+        assert g.snapshot(now_tick=100 * MS)["teams"][0]["score"] == 0
+        assert g.snapshot(now_tick=100 * MS)["teams"][1]["score"] == 0
+
+
+def test_return_to_board_illegal_from_idle():
+    g = make_game()
+    with pytest.raises(IllegalTransitionError):
+        g.return_to_board(tick_ns=0)
 
 
 def test_adjust_score_any_phase():

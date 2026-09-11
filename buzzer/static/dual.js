@@ -16,7 +16,6 @@
   const boardStageEl = document.getElementById("board-stage");
 
   const btnArm = document.getElementById("btn-arm");
-  const btnReveal = document.getElementById("btn-reveal");
   const btnCorrect = document.getElementById("btn-correct");
   const btnIncorrect = document.getElementById("btn-incorrect");
   const btnBack = document.getElementById("btn-back");
@@ -118,6 +117,35 @@
   function render(state) {
     renderHostPane(state);
     renderBoardPane(state);
+    maybeAnnounceBuzz(state);
+  }
+
+  // See board.js for the full rationale -- same edge-triggered approach so
+  // the periodic heartbeat doesn't repeat an announcement for a state that
+  // hasn't actually changed.
+  let announcedFor = null;
+
+  function maybeAnnounceBuzz(state) {
+    if (state.phase !== "LOCKED" || state.winner === null || state.winner === undefined) {
+      announcedFor = null;
+      return;
+    }
+    const clue = state.active_clue;
+    const key = state.winner + ":" + (clue ? clue.category + "-" + clue.row : "");
+    if (key === announcedFor) return;
+    announcedFor = key;
+    const team = state.teams[state.winner];
+    if (team) speak(team.name);
+  }
+
+  function speak(text) {
+    if (!text || !("speechSynthesis" in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+    } catch (err) {
+      console.error("speech synthesis failed", err);
+    }
   }
 
   // ---------------- host pane ----------------
@@ -240,10 +268,11 @@
   function renderActions(state) {
     const phase = state.phase;
     btnArm.disabled = phase !== "READING";
-    btnReveal.disabled = !(phase === "READING" || phase === "ARMED" || phase === "LOCKED");
     btnCorrect.disabled = phase !== "LOCKED";
     btnIncorrect.disabled = phase !== "LOCKED";
-    btnBack.disabled = !(phase === "REVEALED" || phase === "FINAL_JEOPARDY");
+    // Back to board is the universal "done with this clue" action now --
+    // valid any time a clue is in progress, not just after adjudicating.
+    btnBack.disabled = phase === "IDLE";
   }
 
   // ---------------- board pane ----------------
@@ -383,7 +412,6 @@
   // ---------------- actions ----------------
 
   btnArm.addEventListener("click", () => post("/api/arm"));
-  btnReveal.addEventListener("click", () => post("/api/reveal"));
   btnCorrect.addEventListener("click", () => post("/api/mark_correct"));
   btnIncorrect.addEventListener("click", () => post("/api/mark_incorrect"));
   btnBack.addEventListener("click", () => post("/api/return_to_board"));
@@ -410,10 +438,6 @@
       case "n":
       case "N":
         if (!btnIncorrect.disabled) post("/api/mark_incorrect");
-        break;
-      case "r":
-      case "R":
-        if (!btnReveal.disabled) post("/api/reveal");
         break;
       case "Escape":
         if (!btnBack.disabled) post("/api/return_to_board");

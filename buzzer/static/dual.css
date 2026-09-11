@@ -267,7 +267,7 @@ button {
 
 #actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   padding: 10px;
 }
@@ -301,13 +301,8 @@ button {
   border-color: var(--bad);
   color: var(--bad);
 }
-.action-btn.reveal {
-  background: #2a2314;
-  border-color: var(--gold);
-  color: var(--gold);
-}
 .action-btn.back {
-  grid-column: span 2;
+  grid-column: span 3;
 }
 
 /* ================= board pane ================= */

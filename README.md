@@ -52,7 +52,7 @@ curl -X POST http://localhost:8000/dev/buzz/0
 
 Visit the pages:
 - **Board display:** http://localhost:8000/board
-- **Host panel:** http://localhost:8000/host (keyboard: space=arm, 1/2=manual buzz, y/n=correct/incorrect, r=reveal, esc=back to board)
+- **Host panel:** http://localhost:8000/host (keyboard: space=arm, 1/2=manual buzz, y/n=correct/incorrect, esc=back to board)
 
 ## Raspberry Pi Setup
 
@@ -171,17 +171,14 @@ values, and which clues are Daily Doubles:
 | `2` | Manual buzz override for Team B |
 | `y` | Mark the buzzed-in team correct |
 | `n` | Mark the buzzed-in team incorrect |
-| `r` | Skip straight to "done" without adjudicating (e.g. time's up) |
-| Esc | Return to board |
+| Esc | Back to board — works at any point (nobody buzzed? assume nothing happened, no score change) |
 
 ## Daily Double & Final Jeopardy
 
 Both are intentionally paper-based, like the rest of the clue content — no
 digital wagering, no auto-scoring. The host applies results by hand with
-the existing manual score-adjust control (the "Adjust" button per team on
-`/host`, or a keyboard-free equivalent isn't needed on `/dual` since the
-team panels there are read-only — use `/host` on a phone for that, or
-`POST /api/adjust_score`).
+the existing manual score-adjust control: the "Adjust" button per team, on
+`/host` and `/dual` alike (or `POST /api/adjust_score` directly).
 
 **Daily Double**: clicking a flagged tile shows "Daily Double" instead of a
 dollar value and skips arming entirely — there's no buzzer race, because
