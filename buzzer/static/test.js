@@ -16,9 +16,11 @@
   const logEl = document.getElementById("log");
 
   const TEAM_CLASS = ["team-a", "team-b"];
+  const PRESSES_PER_TEAM = 4;
 
   let teams = [];
   let current = 0;
+  let pressCount = 0;
   let lastTick = null;
   let advanceTimer = null;
 
@@ -79,6 +81,7 @@
     if (msg.type === "hello") {
       teams = msg.teams;
       current = 0;
+      pressCount = 0;
       buildChecklist();
       showWaiting();
       return;
@@ -97,12 +100,18 @@
       const mark = document.createElement("div");
       mark.className = "mark";
       const label = document.createElement("div");
-      label.textContent = name;
+      label.textContent = name + ` (0/${PRESSES_PER_TEAM})`;
+      label.id = "check-label-" + idx;
       row.appendChild(mark);
       row.appendChild(label);
       checklistEl.appendChild(row);
     });
     updateChecklistHighlight();
+  }
+
+  function updateChecklistCount(idx, count) {
+    const label = document.getElementById("check-label-" + idx);
+    if (label) label.textContent = teams[idx] + ` (${count}/${PRESSES_PER_TEAM})`;
   }
 
   function updateChecklistHighlight() {
@@ -118,7 +127,7 @@
     clearTimeout(advanceTimer);
     promptEl.className = current === 0 ? "waiting-a" : "waiting-b";
     promptTeamEl.textContent = teams[current];
-    promptDetailEl.textContent = "Waiting for a press…";
+    promptDetailEl.textContent = `Waiting for a press… (${pressCount}/${PRESSES_PER_TEAM})`;
     updateChecklistHighlight();
   }
 
@@ -129,7 +138,11 @@
     teams.forEach((_, idx) => document.getElementById("check-" + idx)?.classList.remove("current"));
     advanceTimer = setTimeout(() => {
       current = 0;
-      teams.forEach((_, idx) => document.getElementById("check-" + idx)?.classList.remove("done"));
+      pressCount = 0;
+      teams.forEach((_, idx) => {
+        document.getElementById("check-" + idx)?.classList.remove("done");
+        updateChecklistCount(idx, 0);
+      });
       showWaiting();
     }, 1800);
   }
@@ -145,14 +158,25 @@
       lastTick !== null ? ((msg.tick - lastTick) / 1e6).toFixed(1) + "ms since last edge" : "";
     lastTick = msg.tick;
 
-    document.getElementById("check-" + current)?.classList.add("done");
+    pressCount += 1;
+    updateChecklistCount(current, pressCount);
+
+    const doneWithTeam = pressCount >= PRESSES_PER_TEAM;
+    if (doneWithTeam) document.getElementById("check-" + current)?.classList.add("done");
+
     promptEl.className = "got-it";
     promptTeamEl.textContent = teams[current] + " ✓";
-    promptDetailEl.textContent = "Registered" + (deltaMs ? " — " + deltaMs : "");
+    promptDetailEl.textContent =
+      `Registered (${pressCount}/${PRESSES_PER_TEAM})` + (deltaMs ? " — " + deltaMs : "");
 
     clearTimeout(advanceTimer);
     advanceTimer = setTimeout(() => {
+      if (!doneWithTeam) {
+        showWaiting(); // same team, needs more presses
+        return;
+      }
       current += 1;
+      pressCount = 0;
       if (current >= teams.length) {
         showAllDone();
       } else {
@@ -183,8 +207,12 @@
   restartBtn.addEventListener("click", () => {
     clearTimeout(advanceTimer);
     current = 0;
+    pressCount = 0;
     lastTick = null;
-    teams.forEach((_, idx) => document.getElementById("check-" + idx)?.classList.remove("done"));
+    teams.forEach((_, idx) => {
+      document.getElementById("check-" + idx)?.classList.remove("done");
+      updateChecklistCount(idx, 0);
+    });
     showWaiting();
   });
   restartBtn.hidden = false;
