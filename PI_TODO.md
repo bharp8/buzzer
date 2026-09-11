@@ -208,6 +208,50 @@ simultaneously (discovered the hard way: the Pi's `eth0` and `wlan0` both
 tried to claim `10.42.0.1/24` at once, and connectivity broke until one side
 was moved with `ipv4.addresses` to a different subnet).
 
+## 6a. Ethernet made primary (2026-09-11) — Wi-Fi AP is inside a metal ammo can
+
+First real playtest with buttons wired confirmed the buzz-broadcast bug
+(fixed separately), but reliability was *still* inconsistent after that fix
+landed. Root cause: the Pi (and its Wi-Fi antenna) live inside a steel ammo
+can, which behaves like a partial Faraday cage at 2.4GHz — real RF
+attenuation/packet loss, not something any amount of application-level
+fixing can fully solve. Couldn't get a hard signal-strength number (no
+client was connected to the AP at the moment this was diagnosed), but the
+physics and the symptom both point the same way, and the user confirmed
+this matches what they're seeing.
+
+Fix: `eth0` is now its own NetworkManager-managed DHCP server too, exactly
+like the Wi-Fi AP, on a **different** subnet to avoid the exact collision
+described above:
+
+```bash
+sudo nmcli connection modify "Wired connection 1" \
+  ipv4.method shared ipv4.addresses 10.43.0.1/24 ipv6.method ignore \
+  connection.autoconnect yes connection.autoconnect-priority 10
+sudo nmcli connection up "Wired connection 1"
+```
+
+Plug a laptop into the Pi via ethernet -> it gets a DHCP lease automatically
+(no manual IP configuration, same as plugging into a home router) -> browse
+to `http://10.43.0.1:8000/dual`. Verified this persists across a reboot and
+comes up automatically with no manual steps, same as the AP.
+
+**Recommended setup now**: run `/dual` on a laptop plugged directly into
+the Pi via ethernet as the primary interface. The Wi-Fi AP (`10.42.0.1`,
+`Buzzer`/`buzzerbuzzer`) stays up for phone-buzzer-fallback pages only,
+where occasional Wi-Fi flakiness is a much smaller problem than it is for
+the main board/host display.
+
+- [ ] Not yet tested: actually playing a full round with the primary
+      laptop on ethernet and buttons being pressed for real, to confirm
+      this actually resolves the inconsistency and wasn't just one factor
+      among several.
+- [ ] If ethernet alone doesn't fully fix it, next things to try: an
+      external antenna or a way to crack the can's lid near the Wi-Fi chip,
+      or move to a small external travel router (ethernet in, Wi-Fi
+      radiated from outside the can) instead of relying on the Pi's onboard
+      radio for anything.
+
 - [ ] Actual deployment plan: Pi runs headless (no TV/monitor attached), the
       laptop is the `/board` display, and the host uses `/host` from a
       phone (or the laptop, if that's easier on the night — both just work,

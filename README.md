@@ -102,6 +102,26 @@ then `nmcli connection up buzzer-ap`. If Wi-Fi doesn't come up, check
 (`sudo raspi-config nonint do_wifi_country <CC>`) matches where you actually
 are — both bit us once; see `PI_TODO.md` item 6 for details.
 
+### Ethernet as the primary connection
+
+If the Pi lives inside a metal enclosure (an ammo can, in this build), the
+Wi-Fi AP alone is not reliable enough for the main display/host device —
+a metal box attenuates 2.4GHz badly. `eth0` is set up as its own DHCP
+server too, on a different subnet so it doesn't collide with the AP:
+
+```bash
+sudo nmcli connection modify "Wired connection 1" \
+  ipv4.method shared ipv4.addresses 10.43.0.1/24 ipv6.method ignore \
+  connection.autoconnect yes connection.autoconnect-priority 10
+sudo nmcli connection up "Wired connection 1"
+```
+
+Plug the primary laptop into the Pi via ethernet — it gets an address
+automatically (`10.43.0.x`, no manual config), then browse to
+`http://10.43.0.1:8000/dual`. Keep the Wi-Fi AP up for phone-buzzer-fallback
+pages, where Wi-Fi flakiness matters much less than it does for the main
+display.
+
 **Important:** Before deploying, check `PI_TODO.md` for the detailed hardware bring-up and verification checklist.
 
 ## GPIO Wiring (Raspberry Pi 4, Bookworm)
