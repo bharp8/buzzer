@@ -39,6 +39,19 @@ if not logger.handlers:
 
 STATIC_DIR = Path(__file__).parent / "static"
 
+# Bound on a single WebSocket send within ConnectionManager.broadcast --
+# see the comment there for why this exists.
+SEND_TIMEOUT_S = 3.0
+
+
+def _log_future_exception(future) -> None:
+    # A concurrent.futures.Future from run_coroutine_threadsafe that nobody
+    # ever calls .result() on swallows its exception completely -- no
+    # traceback anywhere, the broadcast just silently never happened.
+    exc = future.exception()
+    if exc is not None:
+        logger.error("broadcast task failed", exc_info=exc)
+
 
 class SelectClueBody(BaseModel):
     category: int
@@ -66,19 +79,34 @@ class ConnectionManager:
                 self.active.remove(ws)
 
     async def broadcast(self, message: str) -> None:
+        # The lock spans the whole send loop, not just the read of
+        # `active` -- two broadcasts can otherwise overlap (a heartbeat
+        # tick, two host actions close together, a buzz racing either of
+        # those) and end up calling send_text() concurrently on the same
+        # connection. Starlette/ASGI WebSocket sends aren't safe for
+        # concurrent callers; an overlapping pair can corrupt or hang that
+        # connection until the client reconnects (a manual refresh), which
+        # is exactly the "sometimes doesn't update live" symptom this was
+        # causing. Broadcasts are small and infrequent, so serializing them
+        # entirely costs nothing that matters.
+        #
+        # Precisely because everything now goes through one lock, a single
+        # truly stuck connection (not one that errors -- one that just
+        # never completes send_text, e.g. a phone that dropped off Wi-Fi
+        # without a clean TCP close) must not be allowed to block every
+        # other client's broadcast indefinitely. Bound each send so one
+        # bad connection costs everyone else at most SEND_TIMEOUT_S, not
+        # forever.
         async with self._lock:
-            targets = list(self.active)
-        dead = []
-        for ws in targets:
-            try:
-                await ws.send_text(message)
-            except Exception:
-                dead.append(ws)
-        if dead:
-            async with self._lock:
-                for ws in dead:
-                    if ws in self.active:
-                        self.active.remove(ws)
+            dead = []
+            for ws in list(self.active):
+                try:
+                    await asyncio.wait_for(ws.send_text(message), timeout=SEND_TIMEOUT_S)
+                except Exception:
+                    dead.append(ws)
+            for ws in dead:
+                if ws in self.active:
+                    self.active.remove(ws)
 
 
 def load_content(path: str):
@@ -189,7 +217,12 @@ def create_app(content_path: Optional[str] = None, backend: Optional[BuzzerInput
         log_buzz(entry, source)
         loop = loop_holder["loop"]
         if loop is not None:
-            asyncio.run_coroutine_threadsafe(broadcast_all(entry, source), loop)
+            future = asyncio.run_coroutine_threadsafe(broadcast_all(entry, source), loop)
+            # Nothing ever reads this future otherwise, so an exception in
+            # broadcast_all would vanish completely -- exactly the kind of
+            # silent failure that looks like "sometimes it just doesn't
+            # update" with no error anywhere to explain why.
+            future.add_done_callback(_log_future_exception)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -303,12 +336,6 @@ def create_app(content_path: Optional[str] = None, backend: Optional[BuzzerInput
     @app.post("/api/mark_incorrect")
     async def api_mark_incorrect():
         _apply(lambda: game.mark_incorrect(tick_ns=time.monotonic_ns()))
-        await broadcast_state()
-        return game.snapshot(now_tick=time.monotonic_ns())
-
-    @app.post("/api/reveal")
-    async def api_reveal():
-        _apply(lambda: game.reveal(tick_ns=time.monotonic_ns()))
         await broadcast_state()
         return game.snapshot(now_tick=time.monotonic_ns())
 

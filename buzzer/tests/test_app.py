@@ -2,12 +2,14 @@
 startup self-test warnings, and the mock-only /dev/buzz route. game.py's
 own state machine tests live in test_game.py -- these just check the wiring.
 """
+import asyncio
 import json
+import time
 
 import pytest
 from fastapi.testclient import TestClient
 
-from buzzer.app import create_app
+from buzzer.app import ConnectionManager, create_app
 from buzzer.inputs.mock import MockBackend
 
 
@@ -266,3 +268,70 @@ def test_daily_double_tile_skips_arm_and_buzzing(content_path):
             snap = ws.receive_json()
             assert snap["winner"] is None
             assert snap["phase"] == "REVEALED"
+
+
+# ---- ConnectionManager broadcast robustness ----
+# Root cause of a real reported bug: two overlapping broadcast() calls could
+# send_text() concurrently on the same connection (unsafe over ASGI), and
+# once broadcasts were serialized to fix that, a single truly stuck
+# connection (not one that errors -- one that just never completes
+# send_text) would otherwise block every other client's update forever.
+
+
+class _HangingWs:
+    async def send_text(self, msg):
+        await asyncio.sleep(999)
+
+
+class _RecordingWs:
+    def __init__(self):
+        self.received = []
+
+    async def send_text(self, msg):
+        self.received.append(msg)
+
+
+def test_broadcast_is_not_blocked_forever_by_one_stuck_connection():
+    async def run():
+        mgr = ConnectionManager()
+        hanging = _HangingWs()
+        good = _RecordingWs()
+        mgr.active = [hanging, good]
+
+        start = time.monotonic()
+        await mgr.broadcast("hello")
+        elapsed = time.monotonic() - start
+
+        assert elapsed < 10, f"broadcast blocked for {elapsed:.1f}s on one stuck connection"
+        assert good.received == ["hello"]
+        assert hanging not in mgr.active
+
+    asyncio.run(run())
+
+
+def test_two_concurrent_broadcasts_dont_interleave_sends_on_one_connection():
+    # Regression guard for the actual bug: overlapping broadcast() calls
+    # must not call send_text() on the same connection at the same time.
+    order = []
+
+    class _SlowWs:
+        async def send_text(self, msg):
+            order.append(("start", msg))
+            await asyncio.sleep(0.05)
+            order.append(("end", msg))
+
+    async def run():
+        mgr = ConnectionManager()
+        ws = _SlowWs()
+        mgr.active = [ws]
+
+        await asyncio.gather(mgr.broadcast("first"), mgr.broadcast("second"))
+
+        # Each send must fully finish (start immediately followed by its own
+        # end) before the next one starts -- no interleaving.
+        assert order[0][0] == "start"
+        assert order[1] == ("end", order[0][1])
+        assert order[2][0] == "start"
+        assert order[3] == ("end", order[2][1])
+
+    asyncio.run(run())
