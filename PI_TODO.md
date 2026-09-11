@@ -229,6 +229,27 @@ was moved with `ipv4.addresses` to a different subnet).
       whichever phone happens to have lower Wi-Fi latency. If the bias is
       bad enough to matter, say so rather than treating this as done.
 
+## 6b. First real hardware playtest (2026-09-11): stale-WebSocket bug found + fixed
+
+First actual physical button test. Buttons themselves worked correctly --
+confirmed via journalctl that real GPIO presses were correctly latched and
+even correctly broadcast (a live SSH-relayed websocket listener received
+each latch within under a second, over the same network). But the actual
+browser in use needed a manual refresh to see a buzz -- the WebSocket had
+gone silently dead (most likely Wi-Fi power-save or an idle NAT/AP timeout)
+without ever firing the page's onclose/onerror, so the existing
+reconnect-on-close logic never triggered.
+
+Fixed with a heartbeat: the server now broadcasts on a fixed cadence
+(`HEARTBEAT_INTERVAL_S`, default 15s) regardless of game activity, and
+every page force-reconnects if it hasn't heard anything in 40s. Not yet
+re-verified with real buttons after this fix (only verified: the broadcast
+pipeline itself works, and the heartbeat fires on schedule with a
+shortened interval on a laptop). **Re-test with real buttons + real phones
+sitting idle for a few minutes before buzzing** -- that's the actual
+failure mode this is meant to catch, and it wasn't reproduced under
+controlled conditions, only inferred from journalctl + the user's report.
+
 ## 7. Log review
 
 Confirm `journalctl -u buzzer` (or wherever logging ends up) actually shows
