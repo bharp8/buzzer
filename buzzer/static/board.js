@@ -96,6 +96,38 @@
     renderWarnings(state);
     renderTeams(state);
     renderStage(state);
+    maybeAnnounceBuzz(state);
+  }
+
+  // Speaks the team name the moment they're locked in, so everyone in the
+  // room knows who's up without needing to look at a screen. Edge-triggered
+  // on a specific (winner, clue) combination so the periodic heartbeat
+  // re-broadcasting the same still-LOCKED state doesn't repeat it, but a
+  // genuine change -- a new buzz, or a fairness correction swapping the
+  // winner -- announces again correctly.
+  let announcedFor = null;
+
+  function maybeAnnounceBuzz(state) {
+    if (state.phase !== "LOCKED" || state.winner === null || state.winner === undefined) {
+      announcedFor = null;
+      return;
+    }
+    const clue = state.active_clue;
+    const key = state.winner + ":" + (clue ? clue.category + "-" + clue.row : "");
+    if (key === announcedFor) return;
+    announcedFor = key;
+    const team = state.teams[state.winner];
+    if (team) speak(team.name);
+  }
+
+  function speak(text) {
+    if (!text || !("speechSynthesis" in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+    } catch (err) {
+      console.error("speech synthesis failed", err);
+    }
   }
 
   function renderWarnings(state) {
