@@ -22,6 +22,23 @@
   let lastTick = null;
   let advanceTimer = null;
 
+  let socket = null;
+  let reconnectDelay = 500;
+
+  // See board.js for why: /ws/test gets a lightweight {"type":"ping"}
+  // heartbeat every ~15s (server config HEARTBEAT_INTERVAL_S) so a
+  // silently-dead connection (Wi-Fi power-save, an idle NAT/AP timeout)
+  // can be detected and force-reconnected here, instead of just sitting
+  // stale until a manual refresh.
+  let lastMessageAt = Date.now();
+  const STALE_MS = 40000;
+  setInterval(() => {
+    if (socket && socket.readyState === WebSocket.OPEN && Date.now() - lastMessageAt > STALE_MS) {
+      console.warn("no message in " + STALE_MS + "ms, forcing reconnect");
+      socket.close();
+    }
+  }, 5000);
+
   function wsUrl() {
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     return proto + "//" + window.location.host + "/ws/test";
@@ -29,14 +46,15 @@
 
   function connect() {
     setConn("connecting");
-    const socket = new WebSocket(wsUrl());
-    let reconnectDelay = 500;
+    lastMessageAt = Date.now();
+    socket = new WebSocket(wsUrl());
 
     socket.onopen = () => {
       reconnectDelay = 500;
       setConn("online");
     };
     socket.onmessage = (event) => {
+      lastMessageAt = Date.now();
       try {
         handleMessage(JSON.parse(event.data));
       } catch (err) {

@@ -22,3 +22,8 @@ GAME_CONTENT_PATH: str = os.environ.get(
 
 HOST: str = os.environ.get("BUZZER_HOST", "0.0.0.0")
 PORT: int = _int_env("BUZZER_PORT", 8000)
+
+# How often to send a full snapshot to every client regardless of whether
+# anything changed -- lets clients detect a silently-dead WebSocket
+# (Wi-Fi power-save, an idle NAT/AP timeout) that never fires onclose.
+HEARTBEAT_INTERVAL_S: int = _int_env("HEARTBEAT_INTERVAL_S", 15)

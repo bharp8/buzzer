@@ -121,6 +121,25 @@ def create_app(content_path: Optional[str] = None, backend: Optional[BuzzerInput
         snapshot = game.snapshot(now_tick=time.monotonic_ns())
         await manager.broadcast(json.dumps(snapshot))
 
+    async def heartbeat_loop() -> None:
+        # A WebSocket can go silently dead (Wi-Fi power-save, a NAT/AP
+        # idle timeout) without ever firing the browser's onclose/onerror
+        # handlers -- the client then just sits there never receiving
+        # anything, looking "connected" while actually stale, and a real
+        # buzz update never arrives until a manual refresh. Sending
+        # *something* on a fixed cadence regardless of game activity lets
+        # every client run a "haven't heard anything in too long" watchdog
+        # and force-reconnect on its own. This also self-heals any single
+        # broadcast that got lost for some other reason, since it's a full
+        # snapshot, not a delta.
+        while True:
+            await asyncio.sleep(config.HEARTBEAT_INTERVAL_S)
+            try:
+                await broadcast_state()
+                await test_manager.broadcast(json.dumps({"type": "ping"}))
+            except Exception:
+                logger.exception("heartbeat broadcast failed")
+
     async def broadcast_test_event(entry: dict, source: str) -> None:
         # Test mode (static/test.html) cares about raw edges reaching each
         # pin, independent of game phase -- it needs to see a press even
@@ -188,7 +207,9 @@ def create_app(content_path: Optional[str] = None, backend: Optional[BuzzerInput
                 warnings.append(msg)
                 logger.warning(msg)
         game.set_warnings(warnings)
+        heartbeat_task = asyncio.create_task(heartbeat_loop())
         yield
+        heartbeat_task.cancel()
         backend.stop()
 
     app = FastAPI(title=title, lifespan=lifespan)

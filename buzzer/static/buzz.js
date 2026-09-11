@@ -28,6 +28,19 @@
   let cooldownUntil = 0;
   let online = false;
 
+  // See board.js for why: a heartbeat every ~15s (server config
+  // HEARTBEAT_INTERVAL_S) lets a silently-dead connection (Wi-Fi
+  // power-save, an idle NAT/AP timeout) be detected and force-reconnected
+  // here, instead of just sitting stale until a manual refresh.
+  let lastMessageAt = Date.now();
+  const STALE_MS = 40000;
+  setInterval(() => {
+    if (socket && socket.readyState === WebSocket.OPEN && Date.now() - lastMessageAt > STALE_MS) {
+      console.warn("no message in " + STALE_MS + "ms, forcing reconnect");
+      socket.close();
+    }
+  }, 5000);
+
   function wsUrl() {
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     return proto + "//" + window.location.host + "/ws";
@@ -35,6 +48,7 @@
 
   function connect() {
     setConn("connecting");
+    lastMessageAt = Date.now();
     socket = new WebSocket(wsUrl());
 
     socket.onopen = () => {
@@ -42,6 +56,7 @@
       setConn("online");
     };
     socket.onmessage = (event) => {
+      lastMessageAt = Date.now();
       try {
         render(JSON.parse(event.data));
       } catch (err) {

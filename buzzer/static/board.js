@@ -12,6 +12,21 @@
   const RECONNECT_MAX_DELAY = 5000;
   let connWasDown = false;
 
+  // The server broadcasts a heartbeat snapshot every ~15s (config
+  // HEARTBEAT_INTERVAL_S) regardless of game activity, specifically so a
+  // silently-dead connection can be detected here: a Wi-Fi power-save
+  // sleep or an idle NAT/AP timeout can kill a WebSocket without ever
+  // firing onclose/onerror, leaving the page looking "connected" while
+  // actually stale until forced closed and reconnected.
+  let lastMessageAt = Date.now();
+  const STALE_MS = 40000;
+  setInterval(() => {
+    if (socket && socket.readyState === WebSocket.OPEN && Date.now() - lastMessageAt > STALE_MS) {
+      console.warn("no message in " + STALE_MS + "ms, forcing reconnect");
+      socket.close();
+    }
+  }, 5000);
+
   function wsUrl() {
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     return proto + "//" + window.location.host + "/ws";
@@ -42,6 +57,7 @@
 
   function connect() {
     setConnStatus("connecting");
+    lastMessageAt = Date.now();
     socket = new WebSocket(wsUrl());
 
     socket.onopen = () => {
@@ -50,6 +66,7 @@
     };
 
     socket.onmessage = (event) => {
+      lastMessageAt = Date.now();
       try {
         const state = JSON.parse(event.data);
         render(state);

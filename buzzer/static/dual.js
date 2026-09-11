@@ -25,8 +25,22 @@
 
   const TEAM_CLASS = ["is-a", "is-b"];
 
+  let socket = null;
   let reconnectDelay = 500;
   const RECONNECT_MAX_DELAY = 5000;
+
+  // See board.js for why: a heartbeat every ~15s (server config
+  // HEARTBEAT_INTERVAL_S) lets a silently-dead connection (Wi-Fi
+  // power-save, an idle NAT/AP timeout) be detected and force-reconnected
+  // here, instead of just sitting stale until a manual refresh.
+  let lastMessageAt = Date.now();
+  const STALE_MS = 40000;
+  setInterval(() => {
+    if (socket && socket.readyState === WebSocket.OPEN && Date.now() - lastMessageAt > STALE_MS) {
+      console.warn("no message in " + STALE_MS + "ms, forcing reconnect");
+      socket.close();
+    }
+  }, 5000);
 
   function wsUrl() {
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -35,13 +49,15 @@
 
   function connect() {
     setConn("connecting");
-    const socket = new WebSocket(wsUrl());
+    lastMessageAt = Date.now();
+    socket = new WebSocket(wsUrl());
 
     socket.onopen = () => {
       reconnectDelay = 500;
       setConn("online");
     };
     socket.onmessage = (event) => {
+      lastMessageAt = Date.now();
       try {
         render(JSON.parse(event.data));
       } catch (err) {
