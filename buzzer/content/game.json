@@ -6,17 +6,17 @@
       "name": "Jeopardy",
       "categories": [
         {
-          "name": "World Capitals",
+          "name": "CS Concepts",
           "clues": [
             {"value": 200},
-            {"value": 400},
+            {"value": 400, "daily_double": true},
             {"value": 600},
-            {"value": 800, "daily_double": true},
+            {"value": 800},
             {"value": 1000}
           ]
         },
         {
-          "name": "Shakespeare's Plays",
+          "name": "Math Concepts",
           "clues": [
             {"value": 200},
             {"value": 400},
@@ -26,7 +26,7 @@
           ]
         },
         {
-          "name": "Chemical Elements",
+          "name": "European History",
           "clues": [
             {"value": 200},
             {"value": 400},
@@ -36,7 +36,7 @@
           ]
         },
         {
-          "name": "Iconic Movie Quotes",
+          "name": "DOW Procurements",
           "clues": [
             {"value": 200},
             {"value": 400},
@@ -46,7 +46,7 @@
           ]
         },
         {
-          "name": "Ancient Wonders",
+          "name": "Lyrics",
           "clues": [
             {"value": 200},
             {"value": 400},
@@ -56,7 +56,7 @@
           ]
         },
         {
-          "name": "Space Exploration",
+          "name": "Geography",
           "clues": [
             {"value": 200},
             {"value": 400},
@@ -71,17 +71,7 @@
       "name": "Double Jeopardy",
       "categories": [
         {
-          "name": "Rivers & Lakes",
-          "clues": [
-            {"value": 400},
-            {"value": 800},
-            {"value": 1200, "daily_double": true},
-            {"value": 1600},
-            {"value": 2000}
-          ]
-        },
-        {
-          "name": "Classic Novels",
+          "name": "Brent Knowledge",
           "clues": [
             {"value": 400},
             {"value": 800},
@@ -91,7 +81,17 @@
           ]
         },
         {
-          "name": "Musical Instruments",
+          "name": "Quick Math",
+          "clues": [
+            {"value": 400},
+            {"value": 800},
+            {"value": 1200},
+            {"value": 1600},
+            {"value": 2000, "daily_double": true}
+          ]
+        },
+        {
+          "name": "Anime",
           "clues": [
             {"value": 400},
             {"value": 800},
@@ -101,17 +101,7 @@
           ]
         },
         {
-          "name": "Olympic History",
-          "clues": [
-            {"value": 400},
-            {"value": 800},
-            {"value": 1200},
-            {"value": 1600, "daily_double": true},
-            {"value": 2000}
-          ]
-        },
-        {
-          "name": "Famous Inventors",
+          "name": "American History",
           "clues": [
             {"value": 400},
             {"value": 800},
@@ -121,7 +111,17 @@
           ]
         },
         {
-          "name": "Mythology",
+          "name": "Conspiracies",
+          "clues": [
+            {"value": 400},
+            {"value": 800},
+            {"value": 1200},
+            {"value": 1600},
+            {"value": 2000}
+          ]
+        },
+        {
+          "name": "Trades",
           "clues": [
             {"value": 400},
             {"value": 800},
@@ -134,6 +134,6 @@
     }
   ],
   "final_jeopardy": {
-    "category": "20th Century History"
+    "category": "TBD"
   }
 }
