@@ -87,7 +87,7 @@
             {"value": 800},
             {"value": 1200},
             {"value": 1600},
-            {"value": 2000, "daily_double": true}
+            {"value": 2000}
           ]
         },
         {
@@ -116,7 +116,7 @@
             {"value": 400},
             {"value": 800},
             {"value": 1200},
-            {"value": 1600},
+            {"value": 1600, "daily_double": true},
             {"value": 2000}
           ]
         },
